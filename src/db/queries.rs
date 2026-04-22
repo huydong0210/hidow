@@ -77,7 +77,7 @@ pub fn entity_usage_query() -> String {
 pub fn list_query(node_type: &str) -> String {
     if node_type == "all" {
         "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, wiki_path \
-         FROM module, entity, concept, flow, question ORDER BY node_type, title;"
+         FROM module, entity, concept, flow, question, overview ORDER BY node_type, title;"
             .to_string()
     } else {
         format!(
@@ -93,7 +93,7 @@ pub fn search_query(keyword: &str) -> String {
     let kw_lower = keyword.to_lowercase();
     format!(
         "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, tags, wiki_path \
-         FROM module, entity, concept, flow, question \
+         FROM module, entity, concept, flow, question, overview \
          WHERE string::lowercase(title) CONTAINS '{}' \
             OR tags CONTAINS '{}' \
          ORDER BY node_type, title;",
@@ -150,10 +150,10 @@ pub fn rules_for_query(record_id: &str) -> String {
             slug
         )
     } else {
-        // For entities: find rules that affect this entity
+        // For entities/concepts: find rules that affect this node via the affects edge table
         format!(
-            "SELECT meta::id(id) AS br_id, rule, severity, module \
-             FROM business_rule WHERE ->affects CONTAINS {} ORDER BY severity, br_id;",
+            "SELECT meta::id(in) AS br_id, in.rule AS rule, in.severity AS severity, in.module AS module \
+             FROM affects WHERE out = {} ORDER BY severity, br_id;",
             record_id
         )
     }
@@ -254,6 +254,36 @@ pub fn semantic_search_query(table: &str, embedding_json: &str, k: usize) -> Str
             meta::id(id) AS node_id, \
             meta::tb(id) AS node_type, \
             title, wiki_path, \
+            vector::similarity::cosine(embedding, {}) AS score \
+         FROM {} \
+         WHERE embedding IS NOT NONE \
+         ORDER BY score DESC \
+         LIMIT {};",
+        embedding_json, table, k
+    )
+}
+
+/// Keyword search query returning fields compatible with RRF merging.
+pub fn keyword_search_for_hybrid(keyword: &str) -> String {
+    let kw_lower = keyword.to_lowercase();
+    format!(
+        "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, wiki_path \
+         FROM module, entity, concept, flow, question, overview \
+         WHERE string::lowercase(title) CONTAINS '{}' \
+            OR tags CONTAINS '{}' \
+            OR string::lowercase(content) CONTAINS '{}' \
+         ORDER BY node_type, title;",
+        kw_lower, kw_lower, kw_lower
+    )
+}
+
+/// RAG context retrieval: semantic search returning full content for LLM consumption.
+pub fn ask_context_query(table: &str, embedding_json: &str, k: usize) -> String {
+    format!(
+        "SELECT \
+            meta::id(id) AS node_id, \
+            meta::tb(id) AS node_type, \
+            title, wiki_path, content, \
             vector::similarity::cosine(embedding, {}) AS score \
          FROM {} \
          WHERE embedding IS NOT NONE \

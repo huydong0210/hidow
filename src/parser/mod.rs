@@ -9,7 +9,7 @@ use walkdir::WalkDir;
 use models::{WikiFrontmatter, WikiPage};
 
 /// List of files to skip during parsing (meta pages without graph-ready data).
-const SKIP_FILES: &[&str] = &["index.md", "log.md", "overview.md"];
+const SKIP_FILES: &[&str] = &["index.md", "log.md"];
 
 /// Parse all wiki markdown files from the given directory.
 pub fn parse_wiki_dir(wiki_path: &Path) -> Result<Vec<WikiPage>> {

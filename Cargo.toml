@@ -1,16 +1,12 @@
 [package]
 name = "hidow"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "CLI tool to manage NIMP wiki knowledge graph in SurrealDB"
 
 [[bin]]
 name = "hidow"
 path = "src/main.rs"
-
-[features]
-default = []
-vector = ["fastembed", "ort"]
 
 [dependencies]
 surrealdb = { version = "2", features = ["kv-surrealkv"] }
@@ -26,5 +22,6 @@ sha2 = "0.10"
 toml = "0.8"
 colored = "2"
 anyhow = "1"
-fastembed = { version = "4", optional = true }
-ort = { version = "2.0.0-rc.9", features = ["load-dynamic"], optional = true }
+fastembed = "4"
+ort = { version = "2.0.0-rc.9", features = ["load-dynamic"] }
+

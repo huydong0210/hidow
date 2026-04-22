@@ -73,6 +73,20 @@ pub async fn define_schema(db: &DbConn) -> Result<()> {
         DEFINE FIELD content ON question TYPE string;
         DEFINE FIELD content_hash ON question TYPE string;
         DEFINE FIELD wiki_path ON question TYPE string;
+        DEFINE FIELD embedding ON question TYPE option<array<float>>;
+        DEFINE INDEX idx_question_emb ON question FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
+
+        -- Overview nodes (system architecture, meta-documentation)
+        DEFINE TABLE overview SCHEMALESS;
+        DEFINE FIELD title ON overview TYPE string;
+        DEFINE FIELD status ON overview TYPE string;
+        DEFINE FIELD tags ON overview TYPE array;
+        DEFINE FIELD sources ON overview TYPE array;
+        DEFINE FIELD content ON overview TYPE string;
+        DEFINE FIELD content_hash ON overview TYPE string;
+        DEFINE FIELD wiki_path ON overview TYPE string;
+        DEFINE FIELD embedding ON overview TYPE option<array<float>>;
+        DEFINE INDEX idx_overview_emb ON overview FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
 
         -- Business Rule nodes
         DEFINE TABLE business_rule SCHEMALESS;

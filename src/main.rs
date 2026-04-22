@@ -43,10 +43,6 @@ enum Commands {
         /// Ingest a single file only
         #[arg(long)]
         file: Option<String>,
-
-        /// Generate vector embeddings for semantic search (requires 'vector' feature)
-        #[arg(long)]
-        embed: bool,
     },
 
     /// Validate graph integrity against wiki
@@ -82,6 +78,13 @@ enum Commands {
 
     /// Show graph status overview
     Status,
+
+    /// Uninstall hidow — remove database, ORT runtime, model cache, and binary
+    Uninstall {
+        /// Skip confirmation prompt and proceed with removal
+        #[arg(long)]
+        confirm: bool,
+    },
 }
 
 /// Resolve the data directory path.
@@ -97,8 +100,42 @@ fn resolve_data_dir(data_dir: &Option<String>) -> String {
     ".hidow/data".to_string()
 }
 
+/// Auto-detect and set ORT_DYLIB_PATH for ONNX Runtime (used by fastembed).
+/// Searches ~/.hidow/ort/lib/ for the shared library. No-op if already set.
+fn auto_detect_ort_dylib() {
+    if std::env::var("ORT_DYLIB_PATH").is_ok() {
+        return; // User already set it, respect their choice
+    }
+    if let Some(home) = dirs::home_dir() {
+        let ort_lib_dir = home.join(".hidow").join("ort").join("lib");
+        if ort_lib_dir.exists() {
+            // Find libonnxruntime.so.* (versioned) or libonnxruntime.so
+            if let Ok(entries) = std::fs::read_dir(&ort_lib_dir) {
+                let mut best: Option<std::path::PathBuf> = None;
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("libonnxruntime.so") && !name_str.contains("providers") {
+                        // Prefer versioned .so.X.Y.Z over plain .so (which is usually a symlink)
+                        if name_str.chars().filter(|c| *c == '.').count() > 1 {
+                            best = Some(entry.path());
+                        } else if best.is_none() {
+                            best = Some(entry.path());
+                        }
+                    }
+                }
+                if let Some(lib_path) = best {
+                    std::env::set_var("ORT_DYLIB_PATH", &lib_path);
+                }
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    auto_detect_ort_dylib();
+
     let cli = Cli::parse();
     let data_dir = resolve_data_dir(&cli.data_dir);
 
@@ -106,14 +143,13 @@ async fn main() -> anyhow::Result<()> {
         Commands::Init => {
             commands::init::run(&data_dir).await?;
         }
-        Commands::Ingest { full, dry_run, file, embed } => {
+        Commands::Ingest { full, dry_run, file } => {
             commands::ingest::run(
                 &data_dir,
                 &cli.wiki_path,
                 full,
                 dry_run,
                 file.as_deref(),
-                embed,
             )
             .await?;
         }
@@ -128,6 +164,9 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Status => {
             commands::status::run(&data_dir).await?;
+        }
+        Commands::Uninstall { confirm } => {
+            commands::uninstall::run(confirm)?;
         }
     }
 

@@ -10,7 +10,8 @@ Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ gi�
 
 - ⚡️ **Smart Sync**: Quét toàn bộ wiki directory, sử dụng mã băm `SHA-256` để chỉ cập nhật những file markdown có thay đổi, tối ưu hóa tốc độ Ingest.
 - 🕸 **Embedded Graph Database**: SurrealDB chạy trực tiếp trong process (SurrealKV engine), không cần Docker hay service ngoài.
-- 🔍 **13 Query Presets**: Hỗ trợ các query lập trình sẵn để phân tích kiến trúc: Discovery, Impact Analysis, Coupling, Content retrieval.
+- 🔍 **16 Query Presets**: Hỗ trợ các query lập trình sẵn để phân tích kiến trúc: Discovery, Impact Analysis, Coupling, Content retrieval.
+- 🧠 **Vector Search**: Semantic search, similarity ranking, RAG context retrieval bằng `fastembed-rs` + ONNX Runtime (local, offline, zero API key). Embeddings được tự động generate khi ingest.
 - 🛠 **Linter**: Kiểm tra sức khỏe của Wiki, phát hiện Orphan nodes, đảm bảo Graph Database và Wiki luôn đồng bộ (100% in-sync).
 - 📤 **Export linh hoạt**: Xuất Graph ra định dạng `JSON` (bao gồm Business Rules), `CSV` và `DOT` (tương thích Graphviz).
 
@@ -22,14 +23,18 @@ Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ gi�
 - **Rust Toolchain** (v1.75+)
 
 ### Build & Install CLI
-Build project với profile release để tối ưu hiệu năng và copy vào global path:
 
+**Cách nhanh nhất** — Chạy script setup (download ONNX Runtime + build + install global):
 ```bash
-cargo build --release
-cp target/release/hidow ~/.cargo/bin/
+./scripts/setup.sh
 ```
 
-Sau khi copy, bạn có thể gọi lệnh `hidow` ở bất kỳ đâu trên terminal.
+Script sẽ tự động:
+1. Detect ONNX Runtime — download nếu chưa có (~16MB, 1 lần)
+2. Build release
+3. Copy binary vào `~/.cargo/bin/hidow`
+
+Sau khi install, gọi `hidow` ở bất kỳ đâu trên terminal.
 
 Database tự động lưu ở `~/.hidow/data/`. Có thể thay đổi bằng flag `--data-dir <PATH>`.
 
@@ -44,7 +49,7 @@ Mặc định tool sẽ lấy Wiki ở `./wiki` và Database ở `~/.hidow/data`
 > **Lần đầu chạy**: Schema được tự động khởi tạo, không cần chạy `hidow init` riêng.
 
 ```bash
-# Đồng bộ thông minh (chỉ đẩy các file có thay đổi)
+# Đồng bộ thông minh (chỉ đẩy các file có thay đổi + tự động generate embeddings)
 hidow --wiki-path /path/to/wiki ingest
 
 # Reload lại toàn bộ (xóa sạch DB cũ, đẩy mới hoàn toàn)
@@ -66,7 +71,7 @@ hidow --wiki-path /path/to/wiki lint
 ```
 
 ### 3. Truy vấn Graph (Query)
-`hidow` cung cấp **13 preset queries** để phân tích hệ thống:
+`hidow` cung cấp **16 preset queries** để phân tích hệ thống:
 
 #### 🔎 Khám phá hệ thống (Discovery)
 ```bash
@@ -124,6 +129,23 @@ hidow query raw "SELECT title FROM module WHERE count(->depends_on) > 5"
 ```
 *(Thêm cờ `--format json` ở cuối nếu bạn muốn output format JSON thay vì Table)*
 
+#### 🧠 Vector Search
+```bash
+# Tìm modules tương tự (KNN cosine similarity)
+hidow query similar module:claim
+
+# Semantic search — tìm theo ý nghĩa (hỗ trợ tiếng Việt)
+hidow query semantic "tính phí bảo hiểm"
+hidow query semantic "premium calculation"
+
+# RAG context retrieval — trả về full content cho LLM
+hidow query ask "XOL calculation" --format json
+hidow query ask "cách xử lý bồi thường" --top 5
+
+# Hybrid search (keyword + vector, Reciprocal Rank Fusion)
+hidow query search claim
+```
+
 ### 4. Xuất dữ liệu và Vẽ sơ đồ (Export)
 ```bash
 # Xuất toàn bộ Database ra file JSON (bao gồm nodes, edges, business_rules)
@@ -145,10 +167,10 @@ hidow export --format dot --node-type module > modules.dot
 | # | Preset | Arguments | Mô tả |
 |---|--------|-----------|-------|
 | 1 | `list` | `<type>` | Liệt kê nodes: module, entity, concept, flow, question, all |
-| 2 | `search` | `<keyword>` | Tìm kiếm theo title + tags |
+| 2 | `search` | `<keyword>` | Tìm kiếm hybrid (keyword + vector RRF) |
 | 3 | `info` | `<type:id>` | Metadata + relationship counts + BR counts |
-| 4 | `content` | `<type:id>` | **[MỚI]** Full markdown body của wiki page |
-| 5 | `neighbors` | `<type:id>` | **[MỚI]** Tất cả nodes liên quan (in/out, all edge types) |
+| 4 | `content` | `<type:id>` | Full markdown body của wiki page |
+| 5 | `neighbors` | `<type:id>` | Tất cả nodes liên quan (in/out, all edge types) |
 | 6 | `impact` | `<type:id>` | Ai phụ thuộc vào node này? (downstream) |
 | 7 | `deps` | `<type:id>` | Node này phụ thuộc ai? (upstream) |
 | 8 | `rules` | `[severity]` | Business rules (filter: critical/warning/info) |
@@ -156,7 +178,12 @@ hidow export --format dot --node-type module > modules.dot
 | 10 | `coupling` | — | Ranking module phức tạp nhất |
 | 11 | `entity-usage` | — | Ranking entity được dùng nhiều nhất |
 | 12 | `path` | `<from> <to>` | Đường đi + shared entities giữa 2 nodes |
-| 13 | `raw` | `"<SurrealQL>"` | Query SurrealQL tự do |
+| 13 | `similar` | `<type:id>` | Top-K nodes tương tự (KNN cosine similarity) |
+| 14 | `semantic` | `<question>` | Tìm kiếm theo ý nghĩa across all tables |
+| 15 | `ask` | `<question>` | RAG context retrieval với full content |
+| 16 | `raw` | `"<SurrealQL>"` | Query SurrealQL tự do |
+
+
 
 ---
 
@@ -184,4 +211,4 @@ Hệ thống Graph sử dụng các models sau:
 - `affects`: Business Rule ảnh hưởng đến Entities nào
 
 ---
-*Built with Rust & SurrealDB v2 (Embedded SurrealKV).*
+*Built with Rust & SurrealDB v2 (Embedded SurrealKV). Vector search powered by fastembed-rs + ONNX Runtime.*

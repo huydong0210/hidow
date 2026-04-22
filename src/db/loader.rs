@@ -8,25 +8,30 @@ use crate::parser::models::WikiPage;
 
 /// Resolve a wiki path (e.g. "wiki/modules/accounting") to a SurrealDB record ID (e.g. "module:accounting").
 fn resolve_record_id(wiki_path: &str) -> Option<(String, String)> {
-    // wiki_path format: "wiki/{type_plural}/{slug}"
+    // wiki_path format: "wiki/{type_plural}/{slug}" or "wiki/{slug}" for root files
     let parts: Vec<&str> = wiki_path.split('/').collect();
-    if parts.len() < 3 {
-        return None;
+
+    if parts.len() >= 3 {
+        // Standard: wiki/modules/accounting → module:accounting
+        let type_plural = parts[1];
+        let slug = parts[2..].join("_").replace('-', "_");
+
+        let table = match type_plural {
+            "modules" => "module",
+            "entities" => "entity",
+            "concepts" => "concept",
+            "flows" => "flow",
+            "questions" => "question",
+            _ => return None,
+        };
+        Some((table.to_string(), slug))
+    } else if parts.len() == 2 {
+        // Root-level: wiki/overview → overview:overview
+        let slug = parts[1].replace('-', "_");
+        Some((slug.clone(), slug))
+    } else {
+        None
     }
-
-    let type_plural = parts[1];
-    let slug = parts[2..].join("_").replace('-', "_");
-
-    let table = match type_plural {
-        "modules" => "module",
-        "entities" => "entity",
-        "concepts" => "concept",
-        "flows" => "flow",
-        "questions" => "question",
-        _ => return None,
-    };
-
-    Some((table.to_string(), slug))
 }
 
 /// Load all parsed wiki pages into SurrealDB.
@@ -44,7 +49,7 @@ pub async fn load_pages(
         println!("{}", "🗑️  Cleaning existing data...".yellow());
         db.query(
             "
-            DELETE module; DELETE entity; DELETE concept; DELETE flow; DELETE question;
+            DELETE module; DELETE entity; DELETE concept; DELETE flow; DELETE question; DELETE overview;
             DELETE business_rule;
             DELETE depends_on; DELETE produces; DELETE consumes; DELETE contains;
             DELETE part_of; DELETE implements; DELETE uses; DELETE triggers; DELETE affects;

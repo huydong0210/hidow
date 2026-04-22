@@ -82,7 +82,102 @@ pub async fn run(
                 bail!("Usage: hidow query search <keyword>");
             }
             header!("{} \"{}\"", format, "🔍 Search results for:".cyan().bold(), keyword.yellow());
-            db::queries::search_query(keyword)
+
+            // Hybrid search: combine keyword + vector results via RRF
+            {
+                // Try to get vector results
+                let model_result = db::embed::init_model();
+                if let Ok(model) = model_result {
+                    if let Ok(q_vec) = db::embed::embed_text(&model, keyword) {
+                        let vec_json = format!("{:?}", q_vec);
+                        let tables = ["module", "entity", "concept", "flow", "question", "overview"];
+
+                        // 1. Keyword results
+                        let kw_results = db::queries::run_query(&conn, &db::queries::keyword_search_for_hybrid(keyword)).await?;
+
+                        // 2. Vector results
+                        let mut vec_results: Vec<serde_json::Value> = Vec::new();
+                        for table in tables {
+                            let q = db::queries::semantic_search_query(table, &vec_json, 5);
+                            let mut results = db::queries::run_query(&conn, &q).await?;
+                            vec_results.append(&mut results);
+                        }
+                        vec_results.sort_by(|a, b| {
+                            let sa = a.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                            let sb = b.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                            sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+
+                        // 3. RRF merge (k=60)
+                        let rrf_k = 60.0f64;
+                        let mut rrf_scores: std::collections::HashMap<String, (f64, serde_json::Value)> = std::collections::HashMap::new();
+
+                        for (rank, row) in kw_results.iter().enumerate() {
+                            let key = format!("{}:{}",
+                                row.get("node_type").and_then(|v| v.as_str()).unwrap_or(""),
+                                row.get("node_id").and_then(|v| v.as_str()).unwrap_or(""),
+                            );
+                            let score = 1.0 / (rrf_k + rank as f64 + 1.0);
+                            rrf_scores.entry(key).or_insert((0.0, row.clone())).0 += score;
+                        }
+                        for (rank, row) in vec_results.iter().enumerate() {
+                            let key = format!("{}:{}",
+                                row.get("node_type").and_then(|v| v.as_str()).unwrap_or(""),
+                                row.get("node_id").and_then(|v| v.as_str()).unwrap_or(""),
+                            );
+                            let score = 1.0 / (rrf_k + rank as f64 + 1.0);
+                            let entry = rrf_scores.entry(key).or_insert((0.0, row.clone()));
+                            entry.0 += score;
+                        }
+
+                        let mut merged: Vec<(f64, serde_json::Value)> = rrf_scores.into_values().collect();
+                        merged.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+                        merged.truncate(10);
+
+                        if format == "json" {
+                            let json_results: Vec<serde_json::Value> = merged.iter().map(|(score, row)| {
+                                let mut r = row.clone();
+                                if let Some(obj) = r.as_object_mut() {
+                                    obj.insert("rrf_score".to_string(), serde_json::json!(score));
+                                }
+                                r
+                            }).collect();
+                            println!("{}", serde_json::to_string_pretty(&json_results)?);
+                        } else {
+                            if !vec_results.is_empty() {
+                                eprintln!("{}", "  (hybrid: keyword + vector)".dimmed());
+                            }
+                            for (i, (score, r)) in merged.iter().enumerate() {
+                                let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                                let ntype = r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?");
+                                println!("  {}. [{}] {:45} rrf: {:.6}", i + 1, ntype, title, score);
+                            }
+                            if merged.is_empty() {
+                                println!("{}", "  (no results)".dimmed());
+                            }
+                        }
+                        return Ok(());
+                    }
+                }
+                // Fallback: keyword only
+                let q = db::queries::search_query(keyword);
+                let results = db::queries::run_query(&conn, &q).await?;
+                if format == "json" {
+                    println!("{}", serde_json::to_string_pretty(&results)?);
+                } else {
+                    eprintln!("{}", "  (keyword only — no embeddings)".dimmed());
+                    for (i, r) in results.iter().enumerate() {
+                        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                        let ntype = r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?");
+                        println!("  {}. [{}] {}", i + 1, ntype, title);
+                    }
+                    if results.is_empty() {
+                        println!("{}", "  (no results)".dimmed());
+                    }
+                }
+                return Ok(());
+            }
+
         }
         "info" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("");
@@ -176,9 +271,6 @@ pub async fn run(
             return Ok(()); // Already printed custom format
         }
         "similar" => {
-            #[cfg(not(feature = "vector"))]
-            bail!("Vector feature not enabled. Build with: cargo build --features vector");
-            #[cfg(feature = "vector")]
             {
                 let target = args.first().map(|s| s.as_str()).unwrap_or("");
                 if target.is_empty() || !target.contains(':') {
@@ -205,9 +297,6 @@ pub async fn run(
             }
         }
         "semantic" => {
-            #[cfg(not(feature = "vector"))]
-            bail!("Vector feature not enabled. Build with: cargo build --features vector");
-            #[cfg(feature = "vector")]
             {
                 let question = args.first().map(|s| s.as_str()).unwrap_or("");
                 if question.is_empty() {
@@ -217,7 +306,7 @@ pub async fn run(
                 let model = db::embed::init_model()?;
                 let q_vec = db::embed::embed_text(&model, question)?;
                 let vec_json = format!("{:?}", q_vec);
-                let tables = ["module", "entity", "concept", "flow"];
+                let tables = ["module", "entity", "concept", "flow", "overview"];
                 let mut all_results: Vec<serde_json::Value> = Vec::new();
                 for table in tables {
                     let q = db::queries::semantic_search_query(table, &vec_json, 3);
@@ -240,7 +329,75 @@ pub async fn run(
                         println!("  {}. [{}] {:45} score: {:.4}", i + 1, ntype, title, score);
                     }
                     if all_results.is_empty() {
-                        println!("{}", "  No embeddings found. Run: hidow ingest --embed".dimmed());
+                        println!("{}", "  No embeddings found. Run: hidow ingest".dimmed());
+                    }
+                }
+                return Ok(());
+            }
+        }
+        "ask" => {
+            {
+                let question = args.first().map(|s| s.as_str()).unwrap_or("");
+                if question.is_empty() {
+                    bail!("Usage: hidow query ask <question> [--top N] (e.g. ask \"XOL calculation\")");
+                }
+                // Parse --top flag from remaining args (default 3)
+                let top_k: usize = args.iter()
+                    .position(|a| a == "--top")
+                    .and_then(|i| args.get(i + 1))
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(3);
+
+                header!("{} {} (top {})", format, "🧠 RAG context for:".cyan().bold(), question.yellow(), top_k);
+                let model = db::embed::init_model()?;
+                let q_vec = db::embed::embed_text(&model, question)?;
+                let vec_json = format!("{:?}", q_vec);
+                let tables = ["module", "entity", "concept", "flow", "question", "overview"];
+                let mut all_results: Vec<serde_json::Value> = Vec::new();
+                for table in tables {
+                    let q = db::queries::ask_context_query(table, &vec_json, top_k);
+                    let mut results = db::queries::run_query(&conn, &q).await?;
+                    all_results.append(&mut results);
+                }
+                all_results.sort_by(|a, b| {
+                    let sa = a.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let sb = b.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                all_results.truncate(top_k);
+
+                if format == "json" {
+                    // Structured output optimized for LLM system prompts
+                    let context: Vec<serde_json::Value> = all_results.iter().map(|r| {
+                        serde_json::json!({
+                            "node": format!("{}:{}",
+                                r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?"),
+                                r.get("node_id").and_then(|v| v.as_str()).unwrap_or("?")),
+                            "title": r.get("title").and_then(|v| v.as_str()).unwrap_or("?"),
+                            "wiki_path": r.get("wiki_path").and_then(|v| v.as_str()).unwrap_or(""),
+                            "score": r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                            "content": r.get("content").and_then(|v| v.as_str()).unwrap_or(""),
+                        })
+                    }).collect();
+                    let output = serde_json::json!({
+                        "question": question,
+                        "context": context,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    for (i, r) in all_results.iter().enumerate() {
+                        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                        let score = r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let ntype = r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?");
+                        let wiki = r.get("wiki_path").and_then(|v| v.as_str()).unwrap_or("");
+                        let content = r.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                        let preview: String = content.chars().take(120).collect();
+                        println!("\n  {}. [{}] {} (score: {:.4})", i + 1, ntype, title.green(), score);
+                        println!("     wiki: {}", wiki.dimmed());
+                        println!("     {}...", preview.dimmed());
+                    }
+                    if all_results.is_empty() {
+                        println!("{}", "  No embeddings found. Run: hidow ingest".dimmed());
                     }
                 }
                 return Ok(());
@@ -401,7 +558,7 @@ pub async fn run(
         }
         _ => {
             bail!(
-                "Unknown preset '{}'. Available: list, search, info, impact, deps, rules, rules-for, coupling, entity-usage, path, raw",
+                "Unknown preset '{}'. Available: list, search, info, content, neighbors, impact, deps, rules, rules-for, coupling, entity-usage, path, similar, semantic, ask, raw",
                 preset
             );
         }

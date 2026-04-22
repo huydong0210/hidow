@@ -13,7 +13,7 @@ pub async fn run(data_dir: &str) -> Result<()> {
     println!("  Namespace: {} | DB: {}", "nimp".bold(), "wiki".bold());
 
     // Count nodes
-    let tables = ["module", "entity", "concept", "flow", "question", "business_rule"];
+    let tables = ["module", "entity", "concept", "flow", "question", "overview", "business_rule"];
     println!("\n  {}", "Nodes:".bold());
     let mut total_nodes = 0u64;
     for table in tables {

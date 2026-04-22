@@ -1,7 +1,6 @@
 pub mod schema;
 pub mod loader;
 pub mod queries;
-#[cfg(feature = "vector")]
 pub mod embed;
 
 use std::path::Path;

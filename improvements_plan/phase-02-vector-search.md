@@ -1,10 +1,10 @@
 # Phase 2: Vector Search với fastembed-rs
 
-> **Status**: `planned`  
+> **Status**: `completed`  
 > **Priority**: `high`  
 > **Estimated Effort**: 6-8 hours (chia 3 sub-phases)  
 > **Created**: 2026-04-22  
-> **Completed**: —  
+> **Completed**: 2026-04-22  
 
 ---
 
@@ -64,7 +64,7 @@ Semantic search sẽ **hiểu ý nghĩa** → tìm được "premium", "commissi
 
 **File**: `Cargo.toml`
 
-- [ ] Thêm `fastembed` dependency với feature flag
+- [x] Thêm `fastembed` dependency với feature flag
 
 ```toml
 [features]
@@ -79,11 +79,11 @@ fastembed = { version = "5", optional = true }
 
 **File**: `src/db/embed.rs` [NEW]
 
-- [ ] Tạo module embed.rs wrapper cho fastembed
-- [ ] Function `init_model()` → TextEmbedding instance (cached)
-- [ ] Function `embed_text(text: &str) -> Vec<f32>` → embedding vector
-- [ ] Function `embed_batch(texts: &[String]) -> Vec<Vec<f32>>` → batch embeddings
-- [ ] Cfg-guard toàn bộ module: `#[cfg(feature = "vector")]`
+- [x] Tạo module embed.rs wrapper cho fastembed
+- [x] Function `init_model()` → TextEmbedding instance (cached)
+- [x] Function `embed_text(text: &str) -> Vec<f32>` → embedding vector
+- [x] Function `embed_batch(texts: &[String]) -> Vec<Vec<f32>>` → batch embeddings
+- [x] Cfg-guard toàn bộ module: `#[cfg(feature = "vector")]`
 
 ```rust
 #[cfg(feature = "vector")]
@@ -115,8 +115,8 @@ pub mod embed {
 
 **File**: `src/db/schema.rs`
 
-- [ ] Thêm `embedding` field (optional) vào node tables
-- [ ] Thêm MTREE index definitions
+- [x] Thêm `embedding` field (optional) vào node tables
+- [x] Thêm MTREE index definitions
 
 ```sql
 -- Fields (thêm vào mỗi table)
@@ -138,10 +138,10 @@ DEFINE INDEX idx_question_emb ON TABLE question FIELDS embedding MTREE DIMENSION
 
 **File**: `src/commands/ingest.rs`
 
-- [ ] Thêm `--embed` flag vào ingest command
-- [ ] Sau khi upsert nodes, generate embeddings cho changed nodes
-- [ ] Embedding input = `"{title}\n{tags}\n{content}"` (concat metadata + body)
-- [ ] UPDATE node SET embedding = [...] cho mỗi node
+- [x] Thêm `--embed` flag vào ingest command
+- [x] Sau khi upsert nodes, generate embeddings cho changed nodes
+- [x] Embedding input = `"{title}\n{tags}\n{content}"` (concat metadata + body)
+- [x] UPDATE node SET embedding = [...] cho mỗi node
 
 ```rust
 // Pseudo-code
@@ -161,10 +161,10 @@ if embed_flag {
 
 **File**: `src/commands/query.rs`, `src/db/queries.rs`
 
-- [ ] Thêm `similar_query(record_id, k)` vào queries.rs
-- [ ] Thêm `"similar"` branch vào query.rs match block
-- [ ] Table format: ranked list với score
-- [ ] JSON format: array of {node_id, title, wiki_path, score}
+- [x] Thêm `similar_query(record_id, k)` vào queries.rs
+- [x] Thêm `"similar"` branch vào query.rs match block
+- [x] Table format: ranked list với score
+- [x] JSON format: array of {node_id, title, wiki_path, score}
 
 ```sql
 -- Step 1: Lấy embedding của target
@@ -208,10 +208,10 @@ hidow query similar entity:voucher --format json     # JSON output
 
 **File**: `src/commands/query.rs`, `src/db/queries.rs`
 
-- [ ] Embed query text tại runtime: `embed_text(model, question)`
-- [ ] KNN search across ALL tables (module + entity + concept + flow)
-- [ ] Merge + sort by score
-- [ ] Thêm `"semantic"` branch vào match block
+- [x] Embed query text tại runtime: `embed_text(model, question)`
+- [x] KNN search across ALL tables (module + entity + concept + flow)
+- [x] Merge + sort by score
+- [x] Thêm `"semantic"` branch vào match block
 
 ```bash
 hidow query semantic "tính phí bảo hiểm"            # Tìm theo ý nghĩa
@@ -233,9 +233,9 @@ hidow query semantic "cách xử lý bồi thường"        # Tiếng Việt OK
 
 **File**: `src/commands/query.rs`
 
-- [ ] Cập nhật `search` preset: nếu có embeddings, combine keyword score + vector score
-- [ ] Sử dụng Reciprocal Rank Fusion (RRF) để merge 2 ranking lists
-- [ ] Fallback: nếu không có embeddings → keyword search như cũ
+- [x] Cập nhật `search` preset: nếu có embeddings, combine keyword score + vector score
+- [x] Sử dụng Reciprocal Rank Fusion (RRF) để merge 2 ranking lists
+- [x] Fallback: nếu không có embeddings → keyword search như cũ
 
 ---
 
@@ -245,9 +245,9 @@ hidow query semantic "cách xử lý bồi thường"        # Tiếng Việt OK
 
 **File**: `src/commands/query.rs`, `src/db/queries.rs`
 
-- [ ] Embed question → KNN → trả top-k relevant **content chunks**
-- [ ] Output bao gồm: title, wiki_path, relevant_excerpt, score
-- [ ] JSON output tối ưu cho LLM system prompt
+- [x] Embed question → KNN → trả top-k relevant **content chunks**
+- [x] Output bao gồm: title, wiki_path, relevant_excerpt, score
+- [x] JSON output tối ưu cho LLM system prompt
 
 ```bash
 hidow query ask "làm sao tính retro cho XOL treaty?" --top 3 --format json
@@ -281,9 +281,9 @@ hidow query ask "làm sao tính retro cho XOL treaty?" --top 3 --format json
 
 **File**: `src/main.rs`
 
-- [ ] Thêm `--embed` flag vào Ingest command
-- [ ] Cập nhật preset help text
-- [ ] Thêm `embed` subcommand riêng (optional): `hidow embed` — chạy embedding không cần ingest lại
+- [x] Thêm `--embed` flag vào Ingest command
+- [x] Cập nhật preset help text
+- [x] Thêm `embed` subcommand riêng (optional): `hidow embed` — chạy embedding không cần ingest lại
 
 ```rust
 Ingest {

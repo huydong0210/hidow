@@ -6,7 +6,7 @@ use crate::db;
 use crate::parser;
 
 /// Ingest wiki pages into SurrealDB.
-pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>, embed: bool) -> Result<()> {
+pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
     let wiki = Path::new(wiki_path);
 
     // Parse
@@ -82,21 +82,16 @@ pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, fil
         brs.to_string().bold(),
     );
 
-    // Generate embeddings if requested
-    generate_embeddings(&conn, embed).await?;
+    // Always generate embeddings
+    generate_embeddings(&conn).await?;
 
     Ok(())
 }
 
-#[cfg(feature = "vector")]
-async fn generate_embeddings(conn: &db::DbConn, embed: bool) -> anyhow::Result<()> {
-    use colored::Colorize;
-    if !embed {
-        return Ok(());
-    }
+async fn generate_embeddings(conn: &db::DbConn) -> anyhow::Result<()> {
     eprintln!("\n{}", "🧠 Generating embeddings...".cyan().bold());
     let model = db::embed::init_model()?;
-    let tables = ["module", "entity", "concept", "flow", "question"];
+    let tables = ["module", "entity", "concept", "flow", "question", "overview"];
     let mut embed_count = 0;
     for table in tables {
         let q = format!("SELECT meta::id(id) AS node_id, title, tags, content FROM {};", table);
@@ -118,13 +113,5 @@ async fn generate_embeddings(conn: &db::DbConn, embed: bool) -> anyhow::Result<(
         }
     }
     eprintln!("  {} {} embeddings generated", "✅".green(), embed_count.to_string().bold());
-    Ok(())
-}
-
-#[cfg(not(feature = "vector"))]
-async fn generate_embeddings(_conn: &db::DbConn, embed: bool) -> anyhow::Result<()> {
-    if embed {
-        eprintln!("{}", "⚠️  Vector feature not enabled. Build with: cargo build --features vector".yellow().bold());
-    }
     Ok(())
 }
