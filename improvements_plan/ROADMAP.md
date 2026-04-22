@@ -13,6 +13,7 @@ Tracking toàn bộ các phase cải tiến của `hidow`. Mỗi phase có file 
 | Phase | Tiêu đề | Priority | Status | File |
 |-------|---------|----------|--------|------|
 | 1 | LLM Query Enhancements (content, neighbors, export BRs) | `high` | `completed` | [phase-01](phase-01-llm-query-enhancements.md) |
+| 2 | Vector Search (fastembed-rs + SurrealDB MTREE) | `high` | `planned` | [phase-02](phase-02-vector-search.md) |
 
 ---
 
