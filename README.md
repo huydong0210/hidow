@@ -10,9 +10,9 @@ Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ gi�
 
 - ⚡️ **Smart Sync**: Quét toàn bộ wiki directory, sử dụng mã băm `SHA-256` để chỉ cập nhật những file markdown có thay đổi, tối ưu hóa tốc độ Ingest.
 - 🕸 **Embedded Graph Database**: SurrealDB chạy trực tiếp trong process (SurrealKV engine), không cần Docker hay service ngoài.
-- 🔍 **Graph Queries**: Hỗ trợ các query lập trình sẵn để phân tích kiến trúc: tính toán Dependency, Impact Analysis, System Coupling.
+- 🔍 **13 Query Presets**: Hỗ trợ các query lập trình sẵn để phân tích kiến trúc: Discovery, Impact Analysis, Coupling, Content retrieval.
 - 🛠 **Linter**: Kiểm tra sức khỏe của Wiki, phát hiện Orphan nodes, đảm bảo Graph Database và Wiki luôn đồng bộ (100% in-sync).
-- 📤 **Export linh hoạt**: Xuất Graph ra định dạng `JSON`, `CSV` và đặc biệt là `DOT` (tương thích Graphviz) để vẽ sơ đồ trực quan.
+- 📤 **Export linh hoạt**: Xuất Graph ra định dạng `JSON` (bao gồm Business Rules), `CSV` và `DOT` (tương thích Graphviz).
 
 ---
 
@@ -66,7 +66,7 @@ hidow --wiki-path /path/to/wiki lint
 ```
 
 ### 3. Truy vấn Graph (Query)
-`hidow` cung cấp **11 preset queries** để phân tích hệ thống:
+`hidow` cung cấp **13 preset queries** để phân tích hệ thống:
 
 #### 🔎 Khám phá hệ thống (Discovery)
 ```bash
@@ -82,6 +82,14 @@ hidow query search "technical account"
 # Xem chi tiết metadata của 1 node (tags, sources, relationship counts, BR counts)
 hidow query info module:accounting
 hidow query info entity:voucher
+
+# Đọc toàn bộ nội dung wiki page (markdown body) trực tiếp từ DB
+hidow query content module:accounting
+hidow query content entity:voucher
+
+# Xem TẤT CẢ nodes liên quan (tất cả edge types, cả 2 chiều) trong 1 lệnh
+hidow query neighbors module:claim
+hidow query neighbors entity:contract
 ```
 
 #### 📊 Phân tích kiến trúc (Analysis)
@@ -118,7 +126,7 @@ hidow query raw "SELECT title FROM module WHERE count(->depends_on) > 5"
 
 ### 4. Xuất dữ liệu và Vẽ sơ đồ (Export)
 ```bash
-# Xuất toàn bộ Database ra file JSON
+# Xuất toàn bộ Database ra file JSON (bao gồm nodes, edges, business_rules)
 hidow export --format json > dump.json
 
 # Xuất ra định dạng DOT (Graphviz) để vẽ sơ đồ trực quan (toàn bộ)
@@ -129,6 +137,26 @@ hidow export --format dot --node-type module > modules.dot
 ```
 
 **Mẹo vẽ sơ đồ:** Copy nội dung file `.dot` và dán vào [Edotor.net](https://edotor.net/) hoặc [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/) để xem mô hình đồ thị tương tác.
+
+---
+
+## Query Presets Reference
+
+| # | Preset | Arguments | Mô tả |
+|---|--------|-----------|-------|
+| 1 | `list` | `<type>` | Liệt kê nodes: module, entity, concept, flow, question, all |
+| 2 | `search` | `<keyword>` | Tìm kiếm theo title + tags |
+| 3 | `info` | `<type:id>` | Metadata + relationship counts + BR counts |
+| 4 | `content` | `<type:id>` | **[MỚI]** Full markdown body của wiki page |
+| 5 | `neighbors` | `<type:id>` | **[MỚI]** Tất cả nodes liên quan (in/out, all edge types) |
+| 6 | `impact` | `<type:id>` | Ai phụ thuộc vào node này? (downstream) |
+| 7 | `deps` | `<type:id>` | Node này phụ thuộc ai? (upstream) |
+| 8 | `rules` | `[severity]` | Business rules (filter: critical/warning/info) |
+| 9 | `rules-for` | `<type:id>` | Business rules ràng buộc 1 node cụ thể |
+| 10 | `coupling` | — | Ranking module phức tạp nhất |
+| 11 | `entity-usage` | — | Ranking entity được dùng nhiều nhất |
+| 12 | `path` | `<from> <to>` | Đường đi + shared entities giữa 2 nodes |
+| 13 | `raw` | `"<SurrealQL>"` | Query SurrealQL tự do |
 
 ---
 

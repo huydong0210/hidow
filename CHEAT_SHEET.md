@@ -9,7 +9,7 @@ Công cụ `hidow` cung cấp toàn bộ các lệnh để quản lý và truy v
 | Lệnh | Ý nghĩa |
 |------|---------|
 | `hidow init` | Khởi tạo Schema Database ban đầu (Chỉ chạy 1 lần). |
-| `hidow ingest` | Đồng bộ thông minh Wiki vào Graph (chỉ đẩy các file có thay đổi). |
+| `hidow ingest` | Đồng bộ thông minh Wiki vào Graph (chỉ đẩy các file có thay đổi). Auto-init schema nếu lần đầu. |
 | `hidow ingest --full` | Bỏ qua cache, ghi đè toàn bộ Wiki vào Graph từ đầu. |
 | `hidow ingest --dry-run`| Chạy thử Ingest, xem trước số lượng Nodes/Edges sẽ tạo mà không ghi vào DB. |
 | `hidow status` | Xem thống kê số lượng Module, Entity, Concept và các liên kết hiện có. |
@@ -26,6 +26,8 @@ Nhóm lệnh dùng khi LLM hoặc Developer chưa biết chính xác cấu trúc
 | `hidow query search <keyword>` | Tìm kiếm node theo từ khóa trong tiêu đề và tags (Quan trọng nhất). | `search premium` <br> `search voucher` |
 | `hidow query list <type>` | Liệt kê toàn bộ nodes theo loại. | `list module`<br>`list entity`<br>`list all` |
 | `hidow query info <id>` | Xem toàn bộ Metadata, Tags, Quan hệ, và Số lượng Business Rules của 1 Node. | `info module:accounting`<br>`info entity:voucher` |
+| `hidow query content <id>` | **[MỚI]** Đọc toàn bộ nội dung wiki page (markdown body) trực tiếp từ DB. | `content module:accounting`<br>`content entity:voucher` |
+| `hidow query neighbors <id>` | **[MỚI]** Xem TẤT CẢ nodes liên quan (in/out, all edge types) trong 1 lệnh. | `neighbors module:claim`<br>`neighbors entity:contract` |
 
 ---
 
@@ -59,8 +61,8 @@ Nhóm lệnh tính toán tổng thể hoặc truy vấn đường đi phức t�
 
 | Lệnh | Ý nghĩa |
 |------|---------|
+| `hidow export --format json > dump.json`| Xuất toàn bộ (nodes + edges + **business_rules**) ra JSON. |
 | `hidow export --format dot > graph.dot` | Xuất Graphviz DOT để dán vào Edotor.net vẽ sơ đồ mạng nhện. |
-| `hidow export --format json > dump.json`| Xuất toàn bộ dữ liệu ra cục JSON để backup hoặc import nơi khác. |
 | `hidow export --format csv` | Xuất Nodes và Edges ra bảng CSV. |
 
 ---
@@ -68,3 +70,5 @@ Nhóm lệnh tính toán tổng thể hoặc truy vấn đường đi phức t�
 ## 💡 Mẹo sử dụng (Tips)
 1. Thêm cờ `--format json` vào cuối bất kỳ lệnh `query` nào nếu bạn muốn LLM đọc kết quả dưới dạng JSON thay vì dạng bảng.
 2. Bạn có thể truyền `--data-dir <PATH>` hoặc `--wiki-path <PATH>` nếu chạy tool ở ngoài thư mục gốc. Mặc định tool lưu database ở `~/.hidow/data` và đọc wiki ở `./wiki`.
+3. **Workflow LLM tối ưu**: `search` → `content` (đọc chi tiết) → `impact` + `rules-for` (đánh giá rủi ro).
+4. **1 lệnh xem toàn cảnh**: Dùng `neighbors <id>` thay vì gọi riêng `impact` + `deps` + `rules-for`.
