@@ -4,11 +4,11 @@ use colored::Colorize;
 use crate::db;
 
 /// Initialize SurrealDB schema.
-pub async fn run(db_url: &str) -> Result<()> {
+pub async fn run(data_dir: &str) -> Result<()> {
     println!("{}", "🚀 Initializing SurrealDB schema...".cyan().bold());
 
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
-    println!("  ✅ Connected to {}", db_url.green());
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    println!("  ✅ Database at {}", data_dir.green());
 
     db::schema::define_schema(&conn).await?;
     println!("  ✅ Node tables defined: module, entity, concept, flow, question, business_rule");

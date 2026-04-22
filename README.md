@@ -1,6 +1,6 @@
 # Hidow
 
-`hidow` là một công cụ CLI hiệu năng cao được viết bằng Rust, dùng để phân tích tài liệu Wiki hệ thống NIMP (kiến trúc Markdown + YAML Frontmatter) và đồng bộ hóa thành một **Knowledge Graph** trên [SurrealDB](https://surrealdb.com/).
+`hidow` là một công cụ CLI hiệu năng cao được viết bằng Rust, dùng để phân tích tài liệu Wiki hệ thống NIMP (kiến trúc Markdown + YAML Frontmatter) và đồng bộ hóa thành một **Knowledge Graph** trên SurrealDB (embedded).
 
 Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ giữa các Modules, Entities, Concepts, theo dõi Business Rules, phân tích mức độ Coupling (phụ thuộc) và Impact (tác động) khi thay đổi hệ thống.
 
@@ -9,7 +9,7 @@ Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ gi�
 ## Tính năng cốt lõi
 
 - ⚡️ **Smart Sync**: Quét toàn bộ wiki directory, sử dụng mã băm `SHA-256` để chỉ cập nhật những file markdown có thay đổi, tối ưu hóa tốc độ Ingest.
-- 🕸 **Native Graph Database**: Mapping toàn bộ kiến trúc tài liệu thành Nodes (Module, Entity, Concept...) và Edges (depends_on, consumes, produces...) trên SurrealDB.
+- 🕸 **Embedded Graph Database**: SurrealDB chạy trực tiếp trong process (SurrealKV engine), không cần Docker hay service ngoài.
 - 🔍 **Graph Queries**: Hỗ trợ các query lập trình sẵn để phân tích kiến trúc: tính toán Dependency, Impact Analysis, System Coupling.
 - 🛠 **Linter**: Kiểm tra sức khỏe của Wiki, phát hiện Orphan nodes, đảm bảo Graph Database và Wiki luôn đồng bộ (100% in-sync).
 - 📤 **Export linh hoạt**: Xuất Graph ra định dạng `JSON`, `CSV` và đặc biệt là `DOT` (tương thích Graphviz) để vẽ sơ đồ trực quan.
@@ -20,19 +20,8 @@ Công cụ này giúp developer và BA dễ dàng truy vấn mối quan hệ gi�
 
 ### Yêu cầu hệ thống
 - **Rust Toolchain** (v1.75+)
-- **Docker & Docker Compose** (Để chạy SurrealDB)
 
-### 1. Khởi động SurrealDB & Surrealist (GUI)
-Công cụ đi kèm file `docker-compose.yml` để chạy SurrealDB (lưu trữ in-memory) và giao diện quản trị Surrealist:
-
-```bash
-cd hidow
-docker compose up -d
-```
-- **SurrealDB** chạy ở cổng: `localhost:8123`
-- **Surrealist GUI** chạy ở cổng: `http://localhost:8124`
-
-### 2. Build & Install CLI
+### Build & Install CLI
 Build project với profile release để tối ưu hiệu năng và copy vào global path:
 
 ```bash
@@ -42,20 +31,17 @@ cp target/release/hidow ~/.cargo/bin/
 
 Sau khi copy, bạn có thể gọi lệnh `hidow` ở bất kỳ đâu trên terminal.
 
+Database tự động lưu ở `~/.hidow/data/`. Có thể thay đổi bằng flag `--data-dir <PATH>`.
+
 ---
 
 ## Hướng dẫn sử dụng
 
-### 1. Khởi tạo Database (Chạy lần đầu)
-Tạo các Node schemas, Edge schemas và index cần thiết trên SurrealDB.
+### 1. Đồng bộ Wiki vào Graph (Ingest)
+Quét toàn bộ thư mục Wiki và đẩy dữ liệu/quan hệ vào Database.
+Mặc định tool sẽ lấy Wiki ở `./wiki` và Database ở `~/.hidow/data`.
 
-```bash
-hidow init
-```
-
-### 2. Đồng bộ Wiki vào Graph (Ingest)
-Quét toàn bộ thư mục Wiki và đẩy dữ liệu/quan hệ vào Database. 
-Mặc định tool sẽ lấy Wiki ở `./wiki` và Database ở `127.0.0.1:8123`.
+> **Lần đầu chạy**: Schema được tự động khởi tạo, không cần chạy `hidow init` riêng.
 
 ```bash
 # Đồng bộ thông minh (chỉ đẩy các file có thay đổi)
@@ -68,7 +54,7 @@ hidow --wiki-path /path/to/wiki ingest --full
 hidow --wiki-path /path/to/wiki ingest --dry-run
 ```
 
-### 3. Kiểm tra tính toàn vẹn (Lint & Status)
+### 2. Kiểm tra tính toàn vẹn (Lint & Status)
 Xem báo cáo tổng quan về Graph và tìm các lỗi (Orphan nodes, Missing links...).
 
 ```bash
@@ -79,7 +65,7 @@ hidow status
 hidow --wiki-path /path/to/wiki lint
 ```
 
-### 4. Truy vấn Graph (Query)
+### 3. Truy vấn Graph (Query)
 `hidow` cung cấp **11 preset queries** để phân tích hệ thống:
 
 #### 🔎 Khám phá hệ thống (Discovery)
@@ -130,7 +116,7 @@ hidow query raw "SELECT title FROM module WHERE count(->depends_on) > 5"
 ```
 *(Thêm cờ `--format json` ở cuối nếu bạn muốn output format JSON thay vì Table)*
 
-### 5. Xuất dữ liệu và Vẽ sơ đồ (Export)
+### 4. Xuất dữ liệu và Vẽ sơ đồ (Export)
 ```bash
 # Xuất toàn bộ Database ra file JSON
 hidow export --format json > dump.json
@@ -170,4 +156,4 @@ Hệ thống Graph sử dụng các models sau:
 - `affects`: Business Rule ảnh hưởng đến Entities nào
 
 ---
-*Built with Rust & SurrealDB v2.*
+*Built with Rust & SurrealDB v2 (Embedded SurrealKV).*

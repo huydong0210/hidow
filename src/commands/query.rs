@@ -5,12 +5,12 @@ use crate::db;
 
 /// Run a predefined or custom query against the graph.
 pub async fn run(
-    db_url: &str,
+    data_dir: &str,
     preset: &str,
     args: Vec<String>,
     format: &str,
 ) -> Result<()> {
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
 
     let query_str = match preset {
         "impact" => {

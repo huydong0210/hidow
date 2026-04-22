@@ -1,9 +1,9 @@
 use anyhow::Result;
-use surrealdb::engine::remote::ws::Client;
-use surrealdb::Surreal;
+
+use super::DbConn;
 
 /// Define the SurrealDB schema: node tables, edge tables, fields, and indexes.
-pub async fn define_schema(db: &Surreal<Client>) -> Result<()> {
+pub async fn define_schema(db: &DbConn) -> Result<()> {
     // ──────────────────────────────────────────────
     // Node tables
     // ──────────────────────────────────────────────

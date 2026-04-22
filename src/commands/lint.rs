@@ -6,12 +6,12 @@ use crate::db;
 use crate::parser;
 
 /// Lint/validate the graph against the wiki source of truth.
-pub async fn run(db_url: &str, wiki_path: &str, check: Option<&str>) -> Result<()> {
+pub async fn run(data_dir: &str, wiki_path: &str, check: Option<&str>) -> Result<()> {
     println!("{}", "🔍 Graph Health Check".cyan().bold());
 
     let wiki = Path::new(wiki_path);
     let pages = parser::parse_wiki_dir(wiki)?;
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
 
     let mut issues = 0u32;
 

@@ -4,7 +4,6 @@ mod parser;
 
 use clap::{Parser, Subcommand};
 
-const DEFAULT_DB_URL: &str = "127.0.0.1:8123";
 const DEFAULT_WIKI_PATH: &str = "./wiki";
 
 #[derive(Parser)]
@@ -14,9 +13,9 @@ const DEFAULT_WIKI_PATH: &str = "./wiki";
     version
 )]
 struct Cli {
-    /// SurrealDB URL (without ws:// prefix)
-    #[arg(long, global = true, default_value = DEFAULT_DB_URL)]
-    db_url: String,
+    /// Path to embedded database directory (default: ~/.hidow/data)
+    #[arg(long, global = true)]
+    data_dir: Option<String>,
 
     /// Path to wiki directory
     #[arg(long, global = true, default_value = DEFAULT_WIKI_PATH)]
@@ -81,17 +80,31 @@ enum Commands {
     Status,
 }
 
+/// Resolve the data directory path.
+fn resolve_data_dir(data_dir: &Option<String>) -> String {
+    if let Some(dir) = data_dir {
+        return dir.clone();
+    }
+    // Default: ~/.hidow/data
+    if let Some(home) = dirs::home_dir() {
+        return home.join(".hidow").join("data").to_string_lossy().to_string();
+    }
+    // Fallback
+    ".hidow/data".to_string()
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    let data_dir = resolve_data_dir(&cli.data_dir);
 
     match cli.command {
         Commands::Init => {
-            commands::init::run(&cli.db_url).await?;
+            commands::init::run(&data_dir).await?;
         }
         Commands::Ingest { full, dry_run, file } => {
             commands::ingest::run(
-                &cli.db_url,
+                &data_dir,
                 &cli.wiki_path,
                 full,
                 dry_run,
@@ -100,16 +113,16 @@ async fn main() -> anyhow::Result<()> {
             .await?;
         }
         Commands::Lint { check } => {
-            commands::lint::run(&cli.db_url, &cli.wiki_path, check.as_deref()).await?;
+            commands::lint::run(&data_dir, &cli.wiki_path, check.as_deref()).await?;
         }
         Commands::Query { preset, args, format } => {
-            commands::query::run(&cli.db_url, &preset, args, &format).await?;
+            commands::query::run(&data_dir, &preset, args, &format).await?;
         }
         Commands::Export { format, node_type } => {
-            commands::export::run(&cli.db_url, &format, node_type.as_deref()).await?;
+            commands::export::run(&data_dir, &format, node_type.as_deref()).await?;
         }
         Commands::Status => {
-            commands::status::run(&cli.db_url).await?;
+            commands::status::run(&data_dir).await?;
         }
     }
 

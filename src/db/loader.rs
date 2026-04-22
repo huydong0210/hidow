@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
 use serde_json::json;
-use surrealdb::engine::remote::ws::Client;
-use surrealdb::Surreal;
+
+use super::DbConn;
 
 use crate::parser::models::WikiPage;
 
@@ -32,7 +32,7 @@ fn resolve_record_id(wiki_path: &str) -> Option<(String, String)> {
 /// Load all parsed wiki pages into SurrealDB.
 /// Returns (nodes_created, edges_created, brs_created).
 pub async fn load_pages(
-    db: &Surreal<Client>,
+    db: &DbConn,
     pages: &[WikiPage],
     clean: bool,
 ) -> Result<(usize, usize, usize)> {
@@ -179,7 +179,7 @@ pub async fn load_pages(
 
 /// Check which pages have changed since last ingest by comparing content hashes.
 pub async fn get_changed_pages<'a>(
-    db: &Surreal<Client>,
+    db: &DbConn,
     pages: &'a [WikiPage],
 ) -> Result<Vec<&'a WikiPage>> {
     let mut changed = Vec::new();

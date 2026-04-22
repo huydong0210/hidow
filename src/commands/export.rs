@@ -4,8 +4,8 @@ use colored::Colorize;
 use crate::db;
 
 /// Export graph data to various formats.
-pub async fn run(db_url: &str, format: &str, node_type: Option<&str>) -> Result<()> {
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
+pub async fn run(data_dir: &str, format: &str, node_type: Option<&str>) -> Result<()> {
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
 
     // Fetch all nodes
     let tables: Vec<&str> = match node_type {

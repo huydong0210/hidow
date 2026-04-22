@@ -4,12 +4,12 @@ use colored::Colorize;
 use crate::db;
 
 /// Show graph status overview.
-pub async fn run(db_url: &str) -> Result<()> {
+pub async fn run(data_dir: &str) -> Result<()> {
     println!("{}", "📊 NIMP Graph Status".cyan().bold());
-    println!("  Database: {}", db_url.green());
+    println!("  Data dir: {}", data_dir.green());
 
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
-    println!("  Connection: {}", "✅ Connected".green());
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    println!("  {}", "✅ Connected".green());
     println!("  Namespace: {} | DB: {}", "nimp".bold(), "wiki".bold());
 
     // Count nodes

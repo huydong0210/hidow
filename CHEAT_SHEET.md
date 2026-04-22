@@ -67,4 +67,4 @@ Nhóm lệnh tính toán tổng thể hoặc truy vấn đường đi phức t�
 
 ## 💡 Mẹo sử dụng (Tips)
 1. Thêm cờ `--format json` vào cuối bất kỳ lệnh `query` nào nếu bạn muốn LLM đọc kết quả dưới dạng JSON thay vì dạng bảng.
-2. Bạn có thể truyền `--db-url <URL>` hoặc `--wiki-path <PATH>` nếu chạy tool ở ngoài thư mục gốc. Mặc định tool kết nối vào `127.0.0.1:8123` và đọc wiki ở `./wiki`.
+2. Bạn có thể truyền `--data-dir <PATH>` hoặc `--wiki-path <PATH>` nếu chạy tool ở ngoài thư mục gốc. Mặc định tool lưu database ở `~/.hidow/data` và đọc wiki ở `./wiki`.

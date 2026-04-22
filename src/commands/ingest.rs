@@ -6,7 +6,7 @@ use crate::db;
 use crate::parser;
 
 /// Ingest wiki pages into SurrealDB.
-pub async fn run(db_url: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
+pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
     let wiki = Path::new(wiki_path);
 
     // Parse
@@ -40,8 +40,15 @@ pub async fn run(db_url: &str, wiki_path: &str, full: bool, dry_run: bool, file:
     }
 
     // Connect
-    let conn = db::connect(db_url, "nimp", "wiki").await?;
-    println!("  ✅ Connected to {}", db_url.green());
+    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    println!("  ✅ Database at {}", data_dir.green());
+
+    // Auto-init schema if database is empty
+    if !db::is_initialized(&conn).await? {
+        println!("{}", "🚀 First run detected — initializing schema...".cyan());
+        db::schema::define_schema(&conn).await?;
+        println!("  ✅ Schema initialized automatically");
+    }
 
     // Determine which pages need updating
     let pages_to_load = if full || file.is_some() {

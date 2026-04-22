@@ -1,9 +1,9 @@
 use anyhow::Result;
-use surrealdb::engine::remote::ws::Client;
-use surrealdb::Surreal;
+
+use super::DbConn;
 
 /// Run a predefined query and return JSON results.
-pub async fn run_query(db: &Surreal<Client>, query: &str) -> Result<Vec<serde_json::Value>> {
+pub async fn run_query(db: &DbConn, query: &str) -> Result<Vec<serde_json::Value>> {
     let mut response = db.query(query).await?;
     let results: Vec<serde_json::Value> = response.take(0)?;
     Ok(results)
