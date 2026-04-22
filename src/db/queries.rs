@@ -73,28 +73,6 @@ pub fn entity_usage_query() -> String {
         .to_string()
 }
 
-/// Status overview query.
-pub fn status_query() -> String {
-    "SELECT \
-        (SELECT count() FROM module GROUP ALL)[0].count AS modules, \
-        (SELECT count() FROM entity GROUP ALL)[0].count AS entities, \
-        (SELECT count() FROM concept GROUP ALL)[0].count AS concepts, \
-        (SELECT count() FROM flow GROUP ALL)[0].count AS flows, \
-        (SELECT count() FROM question GROUP ALL)[0].count AS questions, \
-        (SELECT count() FROM business_rule GROUP ALL)[0].count AS business_rules, \
-        (SELECT count() FROM depends_on GROUP ALL)[0].count AS edge_depends_on, \
-        (SELECT count() FROM produces GROUP ALL)[0].count AS edge_produces, \
-        (SELECT count() FROM consumes GROUP ALL)[0].count AS edge_consumes, \
-        (SELECT count() FROM contains GROUP ALL)[0].count AS edge_contains, \
-        (SELECT count() FROM part_of GROUP ALL)[0].count AS edge_part_of, \
-        (SELECT count() FROM implements GROUP ALL)[0].count AS edge_implements, \
-        (SELECT count() FROM uses GROUP ALL)[0].count AS edge_uses, \
-        (SELECT count() FROM triggers GROUP ALL)[0].count AS edge_triggers, \
-        (SELECT count() FROM affects GROUP ALL)[0].count AS edge_affects \
-    ;"
-    .to_string()
-}
-
 /// List all nodes of a given type.
 pub fn list_query(node_type: &str) -> String {
     if node_type == "all" {

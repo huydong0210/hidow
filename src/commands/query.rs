@@ -3,6 +3,17 @@ use colored::Colorize;
 
 use crate::db;
 
+/// Print header to stderr when json format, stdout otherwise.
+macro_rules! header {
+    ($fmt:expr, $format:expr $(, $arg:expr)*) => {
+        if $format == "json" {
+            eprintln!($fmt $(, $arg)*);
+        } else {
+            println!($fmt $(, $arg)*);
+        }
+    };
+}
+
 /// Run a predefined or custom query against the graph.
 pub async fn run(
     data_dir: &str,
@@ -15,29 +26,30 @@ pub async fn run(
     let query_str = match preset {
         "impact" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("module:technical_account");
-            println!("{} {}", "🎯 Impact analysis for:".cyan().bold(), target.yellow());
+            header!("{} {}", format, "🎯 Impact analysis for:".cyan().bold(), target.yellow());
             db::queries::impact_query(target)
         }
         "deps" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("entity:voucher");
-            println!("{} {}", "🔗 Dependencies for:".cyan().bold(), target.yellow());
+            header!("{} {}", format, "🔗 Dependencies for:".cyan().bold(), target.yellow());
             db::queries::deps_query(target)
         }
         "rules" => {
             let severity = args.first().map(|s| s.as_str());
-            println!(
+            header!(
                 "{} {}",
+                format,
                 "📋 Business rules".cyan().bold(),
                 severity.map_or("(all)".to_string(), |s| format!("(severity={})", s)).dimmed()
             );
             db::queries::rules_query(severity)
         }
         "coupling" => {
-            println!("{}", "📊 Module coupling ranking".cyan().bold());
+            header!("{}", format, "📊 Module coupling ranking".cyan().bold());
             db::queries::coupling_query()
         }
         "entity-usage" => {
-            println!("{}", "📊 Entity usage across modules".cyan().bold());
+            header!("{}", format, "📊 Entity usage across modules".cyan().bold());
             db::queries::entity_usage_query()
         }
         "list" => {
@@ -46,7 +58,7 @@ pub async fn run(
             if !valid.contains(&node_type) {
                 bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
             }
-            println!("{} {}", "📋 Listing".cyan().bold(), node_type.yellow());
+            header!("{} {}", format, "📋 Listing".cyan().bold(), node_type.yellow());
             db::queries::list_query(node_type)
         }
         "search" => {
@@ -54,7 +66,7 @@ pub async fn run(
             if keyword.is_empty() {
                 bail!("Usage: hidow query search <keyword>");
             }
-            println!("{} \"{}\"", "🔍 Search results for:".cyan().bold(), keyword.yellow());
+            header!("{} \"{}\"", format, "🔍 Search results for:".cyan().bold(), keyword.yellow());
             db::queries::search_query(keyword)
         }
         "info" => {
@@ -62,6 +74,14 @@ pub async fn run(
             if target.is_empty() || !target.contains(':') {
                 bail!("Usage: hidow query info <type:id> (e.g. module:accounting)");
             }
+
+            if format == "json" {
+                // JSON mode: return all info as structured JSON
+                let info_results = db::queries::run_query(&conn, &db::queries::info_query(target)).await?;
+                println!("{}", serde_json::to_string_pretty(&info_results)?);
+                return Ok(());
+            }
+
             println!("{} {}\n", "📄 Node info:".cyan().bold(), target.yellow());
 
             // Main info query
@@ -145,7 +165,7 @@ pub async fn run(
             if target.is_empty() || !target.contains(':') {
                 bail!("Usage: hidow query rules-for <type:id> (e.g. entity:voucher)");
             }
-            println!("{} {}", "📋 Business rules for:".cyan().bold(), target.yellow());
+            header!("{} {}", format, "📋 Business rules for:".cyan().bold(), target.yellow());
             db::queries::rules_for_query(target)
         }
         "path" => {
@@ -154,6 +174,18 @@ pub async fn run(
             if from.is_empty() || to.is_empty() || !from.contains(':') || !to.contains(':') {
                 bail!("Usage: hidow query path <from> <to> (e.g. module:claim module:accounting)");
             }
+
+            if format == "json" {
+                let direct = db::queries::run_query(&conn, &db::queries::path_direct_query(from, to)).await?;
+                let shared = db::queries::run_query(&conn, &db::queries::path_shared_query(from, to)).await?;
+                let output = serde_json::json!({
+                    "direct_edges": direct,
+                    "shared_entities": shared,
+                });
+                println!("{}", serde_json::to_string_pretty(&output)?);
+                return Ok(());
+            }
+
             println!("{} {} → {}\n", "🔗 Path:".cyan().bold(), from.yellow(), to.yellow());
 
             // 1. Direct edges
@@ -166,7 +198,7 @@ pub async fn run(
                     let edge_type = edge.get("edge_type").and_then(|v| v.as_str()).unwrap_or("?");
                     let from_n = edge.get("from_node").and_then(|v| v.as_str()).unwrap_or("?");
                     let to_n = edge.get("to_node").and_then(|v| v.as_str()).unwrap_or("?");
-                    println!("    {} --{}--> {}", from_n, edge_type.green(), to_n);
+                    println!("    {} --{}-->{}", from_n, edge_type.green(), to_n);
                 }
             }
 
@@ -190,7 +222,7 @@ pub async fn run(
             if raw_query.is_empty() {
                 bail!("Usage: hidow query raw \"<SurrealQL>\"");
             }
-            println!("{} {}", "🔧 Raw query:".cyan().bold(), raw_query.dimmed());
+            header!("{} {}", format, "🔧 Raw query:".cyan().bold(), raw_query.dimmed());
             raw_query.to_string()
         }
         _ => {
