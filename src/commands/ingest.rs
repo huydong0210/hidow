@@ -6,7 +6,7 @@ use crate::db;
 use crate::parser;
 
 /// Ingest wiki pages into SurrealDB.
-pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
+pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>, embed: bool) -> Result<()> {
     let wiki = Path::new(wiki_path);
 
     // Parse
@@ -82,5 +82,49 @@ pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, fil
         brs.to_string().bold(),
     );
 
+    // Generate embeddings if requested
+    generate_embeddings(&conn, embed).await?;
+
+    Ok(())
+}
+
+#[cfg(feature = "vector")]
+async fn generate_embeddings(conn: &db::DbConn, embed: bool) -> anyhow::Result<()> {
+    use colored::Colorize;
+    if !embed {
+        return Ok(());
+    }
+    eprintln!("\n{}", "🧠 Generating embeddings...".cyan().bold());
+    let model = db::embed::init_model()?;
+    let tables = ["module", "entity", "concept", "flow", "question"];
+    let mut embed_count = 0;
+    for table in tables {
+        let q = format!("SELECT meta::id(id) AS node_id, title, tags, content FROM {};", table);
+        let rows = db::queries::run_query(conn, &q).await?;
+        for row in &rows {
+            let node_id = row.get("node_id").and_then(|v| v.as_str()).unwrap_or("");
+            let title = row.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            let content = row.get("content").and_then(|v| v.as_str()).unwrap_or("");
+            let tags: Vec<String> = row.get("tags")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|t| t.as_str().map(|s| s.to_string())).collect())
+                .unwrap_or_default();
+            let text = db::embed::prepare_embed_text(title, &tags, content);
+            let vector = db::embed::embed_text(&model, &text)?;
+            let vec_str = format!("{:?}", vector);
+            let update_q = format!("UPDATE {}:{} SET embedding = {};", table, node_id, vec_str);
+            conn.query(&update_q).await?;
+            embed_count += 1;
+        }
+    }
+    eprintln!("  {} {} embeddings generated", "✅".green(), embed_count.to_string().bold());
+    Ok(())
+}
+
+#[cfg(not(feature = "vector"))]
+async fn generate_embeddings(_conn: &db::DbConn, embed: bool) -> anyhow::Result<()> {
+    if embed {
+        eprintln!("{}", "⚠️  Vector feature not enabled. Build with: cargo build --features vector".yellow().bold());
+    }
     Ok(())
 }

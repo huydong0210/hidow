@@ -33,3 +33,4 @@ hidow_modules.dot
 
 # Docker volumes / data
 data/
+.fastembed_cache/

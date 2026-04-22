@@ -230,3 +230,35 @@ pub fn neighbors_incoming_query(record_id: &str) -> String {
         record_id
     )
 }
+
+/// KNN similar search: find nodes most similar to target embedding.
+pub fn similar_query(table: &str, record_id: &str, k: usize) -> String {
+    format!(
+        "SELECT \
+            meta::id(id) AS node_id, \
+            meta::tb(id) AS node_type, \
+            title, wiki_path, \
+            vector::similarity::cosine(embedding, (SELECT embedding FROM {} LIMIT 1)[0].embedding) AS score \
+         FROM {} \
+         WHERE embedding IS NOT NONE AND id != {} \
+         ORDER BY score DESC \
+         LIMIT {};",
+        record_id, table, record_id, k
+    )
+}
+
+/// Semantic search across a single table using pre-computed query embedding.
+pub fn semantic_search_query(table: &str, embedding_json: &str, k: usize) -> String {
+    format!(
+        "SELECT \
+            meta::id(id) AS node_id, \
+            meta::tb(id) AS node_type, \
+            title, wiki_path, \
+            vector::similarity::cosine(embedding, {}) AS score \
+         FROM {} \
+         WHERE embedding IS NOT NONE \
+         ORDER BY score DESC \
+         LIMIT {};",
+        embedding_json, table, k
+    )
+}

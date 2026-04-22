@@ -175,6 +175,77 @@ pub async fn run(
 
             return Ok(()); // Already printed custom format
         }
+        "similar" => {
+            #[cfg(not(feature = "vector"))]
+            bail!("Vector feature not enabled. Build with: cargo build --features vector");
+            #[cfg(feature = "vector")]
+            {
+                let target = args.first().map(|s| s.as_str()).unwrap_or("");
+                if target.is_empty() || !target.contains(':') {
+                    bail!("Usage: hidow query similar <type:id> (e.g. module:claim)");
+                }
+                let (table, _) = target.split_once(':').unwrap();
+                header!("{} {}", format, "🔍 Similar to:".cyan().bold(), target.yellow());
+                let q = db::queries::similar_query(table, target, 5);
+                let results = db::queries::run_query(&conn, &q).await?;
+                if format == "json" {
+                    println!("{}", serde_json::to_string_pretty(&results)?);
+                } else {
+                    for (i, r) in results.iter().enumerate() {
+                        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                        let score = r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let ntype = r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?");
+                        println!("  {}. [{}] {:45} score: {:.4}", i + 1, ntype, title, score);
+                    }
+                    if results.is_empty() {
+                        println!("{}", "  No embeddings found. Run: hidow ingest --embed".dimmed());
+                    }
+                }
+                return Ok(());
+            }
+        }
+        "semantic" => {
+            #[cfg(not(feature = "vector"))]
+            bail!("Vector feature not enabled. Build with: cargo build --features vector");
+            #[cfg(feature = "vector")]
+            {
+                let question = args.first().map(|s| s.as_str()).unwrap_or("");
+                if question.is_empty() {
+                    bail!("Usage: hidow query semantic <question> (e.g. semantic \"tính phí\")");
+                }
+                header!("{} {}", format, "🧠 Semantic search:".cyan().bold(), question.yellow());
+                let model = db::embed::init_model()?;
+                let q_vec = db::embed::embed_text(&model, question)?;
+                let vec_json = format!("{:?}", q_vec);
+                let tables = ["module", "entity", "concept", "flow"];
+                let mut all_results: Vec<serde_json::Value> = Vec::new();
+                for table in tables {
+                    let q = db::queries::semantic_search_query(table, &vec_json, 3);
+                    let mut results = db::queries::run_query(&conn, &q).await?;
+                    all_results.append(&mut results);
+                }
+                all_results.sort_by(|a, b| {
+                    let sa = a.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    let sb = b.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                    sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                all_results.truncate(10);
+                if format == "json" {
+                    println!("{}", serde_json::to_string_pretty(&all_results)?);
+                } else {
+                    for (i, r) in all_results.iter().enumerate() {
+                        let title = r.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                        let score = r.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let ntype = r.get("node_type").and_then(|v| v.as_str()).unwrap_or("?");
+                        println!("  {}. [{}] {:45} score: {:.4}", i + 1, ntype, title, score);
+                    }
+                    if all_results.is_empty() {
+                        println!("{}", "  No embeddings found. Run: hidow ingest --embed".dimmed());
+                    }
+                }
+                return Ok(());
+            }
+        }
         "content" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("");
             if target.is_empty() || !target.contains(':') {

@@ -20,6 +20,8 @@ pub async fn define_schema(db: &DbConn) -> Result<()> {
         DEFINE FIELD content_hash ON module TYPE string;
         DEFINE FIELD wiki_path ON module TYPE string;
         DEFINE INDEX idx_module_hash ON module FIELDS content_hash;
+        DEFINE FIELD embedding ON module TYPE option<array<float>>;
+        DEFINE INDEX idx_module_emb ON module FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
 
         -- Entity nodes
         DEFINE TABLE entity SCHEMALESS;
@@ -32,6 +34,8 @@ pub async fn define_schema(db: &DbConn) -> Result<()> {
         DEFINE FIELD wiki_path ON entity TYPE string;
         DEFINE FIELD attributes ON entity TYPE array;
         DEFINE INDEX idx_entity_hash ON entity FIELDS content_hash;
+        DEFINE FIELD embedding ON entity TYPE option<array<float>>;
+        DEFINE INDEX idx_entity_emb ON entity FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
 
         -- Concept nodes
         DEFINE TABLE concept SCHEMALESS;
@@ -43,6 +47,8 @@ pub async fn define_schema(db: &DbConn) -> Result<()> {
         DEFINE FIELD content_hash ON concept TYPE string;
         DEFINE FIELD wiki_path ON concept TYPE string;
         DEFINE INDEX idx_concept_hash ON concept FIELDS content_hash;
+        DEFINE FIELD embedding ON concept TYPE option<array<float>>;
+        DEFINE INDEX idx_concept_emb ON concept FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
 
         -- Flow nodes
         DEFINE TABLE flow SCHEMALESS;
@@ -55,6 +61,8 @@ pub async fn define_schema(db: &DbConn) -> Result<()> {
         DEFINE FIELD wiki_path ON flow TYPE string;
         DEFINE FIELD data_flow ON flow TYPE array;
         DEFINE INDEX idx_flow_hash ON flow FIELDS content_hash;
+        DEFINE FIELD embedding ON flow TYPE option<array<float>>;
+        DEFINE INDEX idx_flow_emb ON flow FIELDS embedding MTREE DIMENSION 384 DIST COSINE TYPE F32;
 
         -- Question nodes
         DEFINE TABLE question SCHEMALESS;

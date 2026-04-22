@@ -43,6 +43,10 @@ enum Commands {
         /// Ingest a single file only
         #[arg(long)]
         file: Option<String>,
+
+        /// Generate vector embeddings for semantic search (requires 'vector' feature)
+        #[arg(long)]
+        embed: bool,
     },
 
     /// Validate graph integrity against wiki
@@ -102,13 +106,14 @@ async fn main() -> anyhow::Result<()> {
         Commands::Init => {
             commands::init::run(&data_dir).await?;
         }
-        Commands::Ingest { full, dry_run, file } => {
+        Commands::Ingest { full, dry_run, file, embed } => {
             commands::ingest::run(
                 &data_dir,
                 &cli.wiki_path,
                 full,
                 dry_run,
                 file.as_deref(),
+                embed,
             )
             .await?;
         }
