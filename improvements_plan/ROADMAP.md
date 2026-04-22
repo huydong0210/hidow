@@ -25,6 +25,7 @@ Tracking toàn bộ các phase cải tiến của `hidow`. Mỗi phase có file 
 | 2 | Vector Search (fastembed-rs + SurrealDB MTREE) | 2026-04-22 | [phase-02](phase-02-vector-search.md) — similar, semantic, ask, hybrid RRF |
 | 3 | Vector Search Always-On + setup.sh | 2026-04-22 | Bỏ feature flag, embed mặc định, auto-detect ORT, uninstall cmd |
 | 4 | Fix overview ingest + rules-for entity query | 2026-04-22 | overview.md ingested, rules-for follows affects edges |
+| 5 | Bulk query presets (list-detail, context) | 2026-04-23 | Eliminate N+1 queries, 93% token savings for bulk operations |
 
 ---
 

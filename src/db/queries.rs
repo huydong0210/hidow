@@ -88,6 +88,32 @@ pub fn list_query(node_type: &str) -> String {
     }
 }
 
+/// List all nodes with title + content preview + tags (bulk detail in 1 call).
+pub fn list_detail_query(node_type: &str) -> String {
+    if node_type == "all" {
+        "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, tags, \
+                string::slice(content, 0, 200) AS summary, wiki_path \
+         FROM module, entity, concept, flow, question, overview ORDER BY node_type, title;"
+            .to_string()
+    } else {
+        format!(
+            "SELECT meta::id(id) AS node_id, title, status, tags, \
+                    string::slice(content, 0, 200) AS summary, wiki_path \
+             FROM {} ORDER BY title;",
+            node_type
+        )
+    }
+}
+
+/// Get content of multiple nodes by type (all nodes of a type, with content).
+pub fn context_query(node_type: &str) -> String {
+    format!(
+        "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, wiki_path, content \
+         FROM {} ORDER BY title;",
+        node_type
+    )
+}
+
 /// Search nodes by keyword (matches title and tags).
 pub fn search_query(keyword: &str) -> String {
     let kw_lower = keyword.to_lowercase();

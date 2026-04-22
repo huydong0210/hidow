@@ -69,12 +69,34 @@ pub async fn run(
         }
         "list" => {
             let node_type = args.first().map(|s| s.as_str()).unwrap_or("all");
-            let valid = ["module", "entity", "concept", "flow", "question", "all"];
+            let valid = ["module", "entity", "concept", "flow", "question", "overview", "all"];
             if !valid.contains(&node_type) {
                 bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
             }
             header!("{} {}", format, "📋 Listing".cyan().bold(), node_type.yellow());
             db::queries::list_query(node_type)
+        }
+        "list-detail" => {
+            let node_type = args.first().map(|s| s.as_str()).unwrap_or("all");
+            let valid = ["module", "entity", "concept", "flow", "question", "overview", "all"];
+            if !valid.contains(&node_type) {
+                bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
+            }
+            header!("{} {} {}", format, "📋 Detail listing".cyan().bold(), node_type.yellow(),
+                    "(title + summary + tags)".dimmed());
+            db::queries::list_detail_query(node_type)
+        }
+        "context" => {
+            let node_type = args.first().map(|s| s.as_str()).unwrap_or("");
+            if node_type.is_empty() {
+                bail!("Usage: hidow query context <type> (e.g. module, entity, concept, flow)");
+            }
+            let valid = ["module", "entity", "concept", "flow", "question", "overview"];
+            if !valid.contains(&node_type) {
+                bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
+            }
+            header!("{} {}", format, "📦 Full context for all".cyan().bold(), node_type.yellow());
+            db::queries::context_query(node_type)
         }
         "search" => {
             let keyword = args.first().map(|s| s.as_str()).unwrap_or("");
@@ -558,7 +580,7 @@ pub async fn run(
         }
         _ => {
             bail!(
-                "Unknown preset '{}'. Available: list, search, info, content, neighbors, impact, deps, rules, rules-for, coupling, entity-usage, path, similar, semantic, ask, raw",
+                "Unknown preset '{}'. Available: list, list-detail, context, search, info, content, neighbors, impact, deps, rules, rules-for, coupling, entity-usage, path, similar, semantic, ask, raw",
                 preset
             );
         }
