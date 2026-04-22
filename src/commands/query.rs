@@ -160,6 +160,94 @@ pub async fn run(
 
             return Ok(()); // Already printed custom format
         }
+        "content" => {
+            let target = args.first().map(|s| s.as_str()).unwrap_or("");
+            if target.is_empty() || !target.contains(':') {
+                bail!("Usage: hidow query content <type:id> (e.g. module:accounting)");
+            }
+
+            let results = db::queries::run_query(&conn, &db::queries::content_query(target)).await?;
+
+            if format == "json" {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            } else {
+                header!("{} {}", format, "📄 Content for:".cyan().bold(), target.yellow());
+                if let Some(row) = results.first() {
+                    let title = row.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                    let wiki_path = row.get("wiki_path").and_then(|v| v.as_str()).unwrap_or("?");
+                    let content = row.get("content").and_then(|v| v.as_str()).unwrap_or("(no content)");
+                    println!("  title: {}", title.green());
+                    println!("  wiki_path: {}\n", wiki_path.dimmed());
+                    println!("{}", content);
+                } else {
+                    println!("{}", "  (node not found)".dimmed());
+                }
+            }
+            return Ok(());
+        }
+        "neighbors" => {
+            let target = args.first().map(|s| s.as_str()).unwrap_or("");
+            if target.is_empty() || !target.contains(':') {
+                bail!("Usage: hidow query neighbors <type:id> (e.g. module:claim)");
+            }
+
+            let outgoing = db::queries::run_query(&conn, &db::queries::neighbors_outgoing_query(target)).await?;
+            let incoming = db::queries::run_query(&conn, &db::queries::neighbors_incoming_query(target)).await?;
+            let info = db::queries::run_query(&conn, &db::queries::info_query(target)).await?;
+            let title = info.first().and_then(|r| r.get("title")).and_then(|v| v.as_str()).unwrap_or("?");
+
+            if format == "json" {
+                let output = serde_json::json!({
+                    "node": target,
+                    "title": title,
+                    "outgoing": outgoing.first().unwrap_or(&serde_json::json!({})),
+                    "incoming": incoming.first().unwrap_or(&serde_json::json!({})),
+                });
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("{} {} ({})", "🔗 Neighbors of:".cyan().bold(), target.yellow(), title);
+                println!("\n  {}:", "Outgoing →".cyan().bold());
+                if let Some(row) = outgoing.first() {
+                    if let Some(obj) = row.as_object() {
+                        for (key, value) in obj {
+                            if let Some(arr) = value.as_array() {
+                                if !arr.is_empty() {
+                                    let items: Vec<String> = arr.iter().filter_map(|v| {
+                                        v.get("title").and_then(|t| t.as_str()).map(|s| s.to_string())
+                                    }).collect();
+                                    if !items.is_empty() {
+                                        println!("    {}: {}", key.green(), items.join(", "));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                println!("\n  {}:", "Incoming ←".cyan().bold());
+                if let Some(row) = incoming.first() {
+                    if let Some(obj) = row.as_object() {
+                        for (key, value) in obj {
+                            if let Some(arr) = value.as_array() {
+                                if !arr.is_empty() {
+                                    let items: Vec<String> = arr.iter().filter_map(|v| {
+                                        if let Some(t) = v.get("title").and_then(|t| t.as_str()) {
+                                            Some(t.to_string())
+                                        } else if let Some(r) = v.get("rule").and_then(|t| t.as_str()) {
+                                            let sev = v.get("severity").and_then(|s| s.as_str()).unwrap_or("?");
+                                            Some(format!("[{}] {}", sev, r))
+                                        } else { None }
+                                    }).collect();
+                                    if !items.is_empty() {
+                                        println!("    {}: {}", key.green(), items.join(", "));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return Ok(());
+        }
         "rules-for" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("");
             if target.is_empty() || !target.contains(':') {

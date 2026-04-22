@@ -182,3 +182,51 @@ pub fn path_shared_query(from: &str, to: &str) -> String {
         from, from, to, to
     )
 }
+
+/// Get full content of a wiki page by record ID.
+pub fn content_query(record_id: &str) -> String {
+    format!(
+        "SELECT \
+            meta::id(id) AS node_id, \
+            meta::tb(id) AS node_type, \
+            title, status, tags, sources, wiki_path, content \
+        FROM {};",
+        record_id
+    )
+}
+
+/// Get all neighbors of a node (all edge types, both directions).
+pub fn neighbors_outgoing_query(record_id: &str) -> String {
+    format!(
+        "SELECT \
+            ->depends_on->module.{{title, wiki_path}} AS depends_on, \
+            ->produces->entity.{{title, wiki_path}} AS produces, \
+            ->consumes->entity.{{title, wiki_path}} AS consumes, \
+            ->contains->entity.{{title, wiki_path}} AS contains, \
+            ->part_of->entity.{{title, wiki_path}} AS part_of, \
+            ->implements->concept.{{title, wiki_path}} AS implements, \
+            ->uses.{{title, wiki_path}} AS uses, \
+            ->triggers.{{title, wiki_path}} AS triggers, \
+            ->affects->entity.{{title, wiki_path}} AS affects \
+        FROM {};",
+        record_id
+    )
+}
+
+/// Get all incoming neighbors of a node.
+pub fn neighbors_incoming_query(record_id: &str) -> String {
+    format!(
+        "SELECT \
+            <-depends_on<-module.{{title, wiki_path}} AS depended_by, \
+            <-produces<-module.{{title, wiki_path}} AS produced_by, \
+            <-consumes<-module.{{title, wiki_path}} AS consumed_by, \
+            <-contains.{{title, wiki_path}} AS contained_by, \
+            <-part_of.{{title, wiki_path}} AS has_parts, \
+            <-implements<-module.{{title, wiki_path}} AS implemented_by, \
+            <-uses.{{title, wiki_path}} AS used_by, \
+            <-triggers.{{title, wiki_path}} AS triggered_by, \
+            <-affects<-business_rule.{{rule, severity}} AS affected_by_rules \
+        FROM {};",
+        record_id
+    )
+}

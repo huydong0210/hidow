@@ -42,8 +42,11 @@ pub async fn run(data_dir: &str, format: &str, node_type: Option<&str>) -> Resul
         }
     }
 
+    // Fetch business rules
+    let br_q = "SELECT meta::id(id) AS br_id, rule, severity, module, ->affects->entity.title AS affected_entities FROM business_rule ORDER BY severity, br_id;";
+    let all_brs = db::queries::run_query(&conn, br_q).await?;
     match format {
-        "json" => export_json(&all_nodes, &all_edges)?,
+        "json" => export_json(&all_nodes, &all_edges, &all_brs)?,
         "dot" => export_dot(&all_nodes, &all_edges)?,
         "csv" => export_csv(&all_nodes, &all_edges)?,
         _ => bail!("Unknown format '{}'. Available: json, dot, csv", format),
@@ -52,9 +55,10 @@ pub async fn run(data_dir: &str, format: &str, node_type: Option<&str>) -> Resul
     Ok(())
 }
 
-fn export_json(nodes: &[serde_json::Value], edges: &[serde_json::Value]) -> Result<()> {
+fn export_json(nodes: &[serde_json::Value], edges: &[serde_json::Value], business_rules: &[serde_json::Value]) -> Result<()> {
     let output = serde_json::json!({
         "nodes": nodes,
+        "business_rules": business_rules,
         "edges": edges,
     });
     println!("{}", serde_json::to_string_pretty(&output)?);

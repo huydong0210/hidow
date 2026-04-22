@@ -54,7 +54,7 @@ enum Commands {
 
     /// Query the graph (predefined presets or raw SurrealQL)
     Query {
-        /// Preset name: impact, deps, rules, coupling, entity-usage, raw
+        /// Preset name: list, search, info, content, neighbors, impact, deps, rules, rules-for, coupling, entity-usage, path, raw
         preset: String,
 
         /// Arguments for the preset (e.g. record ID, severity, raw query)
