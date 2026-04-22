@@ -1,0 +1,23 @@
+[package]
+name = "hidow"
+version = "0.1.0"
+edition = "2021"
+description = "CLI tool to parse NIMP wiki into SurrealDB graph"
+
+[[bin]]
+name = "hidow"
+path = "src/main.rs"
+
+[dependencies]
+surrealdb = { version = "2", features = ["kv-mem", "protocol-ws"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+walkdir = "2"
+regex = "1"
+clap = { version = "4", features = ["derive"] }
+sha2 = "0.10"
+toml = "0.8"
+colored = "2"
+anyhow = "1"
