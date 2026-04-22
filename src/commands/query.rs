@@ -3,6 +3,16 @@ use colored::Colorize;
 
 use crate::db;
 
+/// Normalize record ID: replace hyphens with underscores.
+/// LLM may use wiki_path format (technical-account) instead of DB slug (technical_account).
+fn normalize_id(id: &str) -> String {
+    if let Some((node_type, slug)) = id.split_once(':') {
+        format!("{}:{}", node_type, slug.replace('-', "_"))
+    } else {
+        id.to_string()
+    }
+}
+
 /// Print header to stderr when json format, stdout otherwise.
 macro_rules! header {
     ($fmt:expr, $format:expr $(, $arg:expr)*) => {
@@ -23,6 +33,11 @@ pub async fn run(
 ) -> Result<()> {
     let conn = db::connect(data_dir, "nimp", "wiki").await?;
 
+
+    // Normalize record IDs: convert hyphens to underscores (LLM may use wiki_path format)
+    let args: Vec<String> = args.into_iter().map(|a| {
+        if a.contains(':') { normalize_id(&a) } else { a }
+    }).collect();
     let query_str = match preset {
         "impact" => {
             let target = args.first().map(|s| s.as_str()).unwrap_or("module:technical_account");
