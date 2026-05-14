@@ -4,19 +4,21 @@ use colored::Colorize;
 use crate::db;
 
 /// Show graph status overview.
-pub async fn run(data_dir: &str) -> Result<()> {
-    println!("{}", "📊 NIMP Graph Status".cyan().bold());
+pub async fn run(data_dir: &str, instance: &str) -> Result<()> {
+    println!("{}", "📊 Graph Status".cyan().bold());
+    println!("  Instance: {}", instance.yellow().bold());
     println!("  Data dir: {}", data_dir.green());
 
-    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, instance).await?;
     println!("  {}", "✅ Connected".green());
-    println!("  Namespace: {} | DB: {}", "nimp".bold(), "wiki".bold());
+    println!("  Namespace: {} | DB: {}", db::NAMESPACE.bold(), instance.bold());
 
-    // Count nodes
-    let tables = ["module", "entity", "concept", "flow", "question", "overview", "business_rule"];
+    // Count nodes (dynamic — includes custom types)
+    let mut tables = db::node_tables(&conn).await.unwrap_or_default();
+    tables.push("business_rule".to_string());
     println!("\n  {}", "Nodes:".bold());
     let mut total_nodes = 0u64;
-    for table in tables {
+    for table in &tables {
         let q = format!("SELECT count() FROM {} GROUP ALL;", table);
         let results = db::queries::run_query(&conn, &q).await?;
         let count = results.first()
@@ -29,7 +31,7 @@ pub async fn run(data_dir: &str) -> Result<()> {
     println!("    {}: {}", format!("{:>15}", "TOTAL").bold(), total_nodes.to_string().bold());
 
     // Count edges
-    let edge_tables = ["depends_on", "produces", "consumes", "contains", "part_of", "implements", "uses", "triggers", "affects"];
+    let edge_tables = db::EDGE_TABLES;
     println!("\n  {}", "Edges:".bold());
     let mut total_edges = 0u64;
     for table in edge_tables {

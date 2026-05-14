@@ -3,16 +3,21 @@ mod db;
 mod parser;
 
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 
 const DEFAULT_WIKI_PATH: &str = "./wiki";
 
 #[derive(Parser)]
 #[command(
     name = "hidow",
-    about = "CLI tool to manage NIMP wiki knowledge graph in SurrealDB",
+    about = "CLI tool to manage knowledge graph instances in SurrealDB",
     version
 )]
 struct Cli {
+    /// Instance name (each project = separate instance)
+    #[arg(short = 'i', long, global = true)]
+    instance: Option<String>,
+
     /// Path to embedded database directory (default: ~/.hidow/data)
     #[arg(long, global = true)]
     data_dir: Option<String>,
@@ -71,7 +76,7 @@ enum Commands {
         #[arg(long)]
         format: String,
 
-        /// Filter by node type: module, entity, concept, flow
+        /// Filter by node type (e.g. module, entity, concept, flow, or any custom type)
         #[arg(long)]
         node_type: Option<String>,
     },
@@ -84,6 +89,12 @@ enum Commands {
         /// Skip confirmation prompt and proceed with removal
         #[arg(long)]
         confirm: bool,
+    },
+
+    /// Manage hidow instances
+    Instance {
+        /// Command: list
+        preset: String,
     },
 }
 
@@ -139,13 +150,27 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let data_dir = resolve_data_dir(&cli.data_dir);
 
+    // Instance commands don't need an instance name
+    if let Commands::Instance { ref preset } = cli.command {
+        commands::instance::run(&data_dir, preset).await?;
+        return Ok(());
+    }
+    if let Commands::Uninstall { confirm } = cli.command {
+        commands::uninstall::run(confirm)?;
+        return Ok(());
+    }
+
+    // Resolve instance (default + warning)
+    let instance = resolve_instance(&cli.instance);
+
     match cli.command {
         Commands::Init => {
-            commands::init::run(&data_dir).await?;
+            commands::init::run(&data_dir, &instance).await?;
         }
         Commands::Ingest { full, dry_run, file } => {
             commands::ingest::run(
                 &data_dir,
+                &instance,
                 &cli.wiki_path,
                 full,
                 dry_run,
@@ -154,21 +179,36 @@ async fn main() -> anyhow::Result<()> {
             .await?;
         }
         Commands::Lint { check } => {
-            commands::lint::run(&data_dir, &cli.wiki_path, check.as_deref()).await?;
+            commands::lint::run(&data_dir, &instance, &cli.wiki_path, check.as_deref()).await?;
         }
         Commands::Query { preset, args, format } => {
-            commands::query::run(&data_dir, &preset, args, &format).await?;
+            commands::query::run(&data_dir, &instance, &preset, args, &format).await?;
         }
         Commands::Export { format, node_type } => {
-            commands::export::run(&data_dir, &format, node_type.as_deref()).await?;
+            commands::export::run(&data_dir, &instance, &format, node_type.as_deref()).await?;
         }
         Commands::Status => {
-            commands::status::run(&data_dir).await?;
+            commands::status::run(&data_dir, &instance).await?;
         }
-        Commands::Uninstall { confirm } => {
-            commands::uninstall::run(confirm)?;
-        }
+        // Instance and Uninstall handled above
+        Commands::Instance { .. } | Commands::Uninstall { .. } => unreachable!(),
     }
 
     Ok(())
+}
+
+/// Resolve instance name: use provided name or default with warning.
+fn resolve_instance(instance: &Option<String>) -> String {
+    match instance {
+        Some(name) => name.clone(),
+        None => {
+            eprintln!(
+                "{} No instance specified, using '{}'. Use {} to specify.",
+                "⚠️ ".yellow(),
+                "default".yellow().bold(),
+                "-i <name>".cyan()
+            );
+            "default".to_string()
+        }
+    }
 }

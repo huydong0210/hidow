@@ -25,6 +25,8 @@ Tracking toàn bộ các phase cải tiến của `hidow`. Mỗi phase có file 
 | 0 | Rename nimp-graph → hidow + Embedded SurrealKV | 2026-04-22 | Bỏ Docker, auto-init, clean JSON output |
 | 1 | LLM Query Enhancements (content, neighbors, export BRs) | 2026-04-22 | [phase-01](phase-01-llm-query-enhancements.md) |
 | 2 | Vector Search + Stabilization | 2026-04-23 | [phase-02](phase-02-vector-search.md) — similar, semantic, ask, hybrid RRF. Includes: always-on embeddings, auto-detect ORT, setup.sh, uninstall cmd, overview ingest fix, rules-for entity, bulk queries (list-detail, context) |
+| 6 | Dynamic Page Types — Loại bỏ hardcode node tables | 2026-05-14 | [phase-06](phase-06-dynamic-page-types.md) — Auto-create schema for new types at ingest, dynamic queries, centralized EDGE_TABLES |
+| 7 | Multi-Instance Support | 2026-05-14 | [phase-07](phase-07-multi-instance.md) — `-i <name>` flag, isolated databases per project, `instance list` command |
 
 ---
 

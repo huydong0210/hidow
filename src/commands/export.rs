@@ -4,13 +4,14 @@ use colored::Colorize;
 use crate::db;
 
 /// Export graph data to various formats.
-pub async fn run(data_dir: &str, format: &str, node_type: Option<&str>) -> Result<()> {
-    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+pub async fn run(data_dir: &str, instance: &str, format: &str, node_type: Option<&str>) -> Result<()> {
+    let conn = db::connect(data_dir, instance).await?;
 
-    // Fetch all nodes
+    // Fetch all nodes (dynamic — includes custom types)
+    let all_node_tables = db::node_tables(&conn).await.unwrap_or_default();
     let tables: Vec<&str> = match node_type {
         Some(t) => vec![t],
-        None => vec!["module", "entity", "concept", "flow", "question"],
+        None => all_node_tables.iter().map(|s| s.as_str()).collect(),
     };
 
     let mut all_nodes: Vec<serde_json::Value> = Vec::new();
@@ -24,7 +25,7 @@ pub async fn run(data_dir: &str, format: &str, node_type: Option<&str>) -> Resul
     }
 
     // Fetch all edges
-    let edge_tables = ["depends_on", "produces", "consumes", "contains", "part_of", "implements", "uses", "triggers", "affects"];
+    let edge_tables = db::EDGE_TABLES;
     let mut all_edges: Vec<serde_json::Value> = Vec::new();
     for table in edge_tables {
         let q = format!(
@@ -88,17 +89,17 @@ fn export_dot(nodes: &[serde_json::Value], edges: &[serde_json::Value]) -> Resul
         let title = node.get("title").and_then(|v| v.as_str()).unwrap_or(&full_id);
         let safe_id = full_id.replace(':', "_").replace('-', "_");
 
-        let color = if node_type == "module" {
-            "#bbdefb"
-        } else if node_type == "entity" {
-            "#c8e6c9"
-        } else if node_type == "concept" {
-            "#fff9c4"
-        } else if node_type == "flow" {
-            "#f8bbd0"
-        } else {
-            "#e0e0e0"
+        // Dynamic color palette for any node type
+        let colors = ["#bbdefb", "#c8e6c9", "#fff9c4", "#f8bbd0", "#d1c4e9", "#b2dfdb", "#ffe0b2", "#f0f4c3"];
+        let type_index = {
+            let known = ["module", "entity", "concept", "flow", "question", "overview"];
+            known.iter().position(|&t| t == node_type)
+                .unwrap_or_else(|| {
+                    // Hash-based index for unknown types
+                    node_type.bytes().fold(0usize, |acc, b| acc.wrapping_add(b as usize)) % colors.len()
+                })
         };
+        let color = colors.get(type_index % colors.len()).unwrap_or(&"#e0e0e0");
 
         println!("  {} [label=\"{}\", fillcolor=\"{}\"];", safe_id, title, color);
     }

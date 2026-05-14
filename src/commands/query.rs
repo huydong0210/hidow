@@ -27,12 +27,20 @@ macro_rules! header {
 /// Run a predefined or custom query against the graph.
 pub async fn run(
     data_dir: &str,
+    instance: &str,
     preset: &str,
     args: Vec<String>,
     format: &str,
 ) -> Result<()> {
-    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, instance).await?;
 
+    // Dynamic: get all node tables from DB
+    let all_tables = db::node_tables(&conn).await.unwrap_or_default();
+    if all_tables.is_empty() && !matches!(preset, "raw") {
+        eprintln!("⚠️  Instance '{}' has no data. Run `hidow -i {} init` and `hidow -i {} ingest` first.", instance, instance, instance);
+        return Ok(());
+    }
+    let all_tables_clause = all_tables.join(", ");
 
     // Normalize record IDs: convert hyphens to underscores (LLM may use wiki_path format)
     let args: Vec<String> = args.into_iter().map(|a| {
@@ -69,31 +77,28 @@ pub async fn run(
         }
         "list" => {
             let node_type = args.first().map(|s| s.as_str()).unwrap_or("all");
-            let valid = ["module", "entity", "concept", "flow", "question", "overview", "all"];
-            if !valid.contains(&node_type) {
-                bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
+            if node_type != "all" && !all_tables.contains(&node_type.to_string()) {
+                bail!("Invalid type '{}'. Available: {}, all", node_type, all_tables_clause);
             }
             header!("{} {}", format, "📋 Listing".cyan().bold(), node_type.yellow());
-            db::queries::list_query(node_type)
+            db::queries::list_query(node_type, &all_tables_clause)
         }
         "list-detail" => {
             let node_type = args.first().map(|s| s.as_str()).unwrap_or("all");
-            let valid = ["module", "entity", "concept", "flow", "question", "overview", "all"];
-            if !valid.contains(&node_type) {
-                bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
+            if node_type != "all" && !all_tables.contains(&node_type.to_string()) {
+                bail!("Invalid type '{}'. Available: {}, all", node_type, all_tables_clause);
             }
             header!("{} {} {}", format, "📋 Detail listing".cyan().bold(), node_type.yellow(),
                     "(title + summary + tags)".dimmed());
-            db::queries::list_detail_query(node_type)
+            db::queries::list_detail_query(node_type, &all_tables_clause)
         }
         "context" => {
             let node_type = args.first().map(|s| s.as_str()).unwrap_or("");
             if node_type.is_empty() {
-                bail!("Usage: hidow query context <type> (e.g. module, entity, concept, flow)");
+                bail!("Usage: hidow query context <type> (e.g. {})", all_tables_clause);
             }
-            let valid = ["module", "entity", "concept", "flow", "question", "overview"];
-            if !valid.contains(&node_type) {
-                bail!("Invalid type '{}'. Available: {}", node_type, valid.join(", "));
+            if !all_tables.contains(&node_type.to_string()) {
+                bail!("Invalid type '{}'. Available: {}", node_type, all_tables_clause);
             }
             header!("{} {}", format, "📦 Full context for all".cyan().bold(), node_type.yellow());
             db::queries::context_query(node_type)
@@ -112,14 +117,13 @@ pub async fn run(
                 if let Ok(model) = model_result {
                     if let Ok(q_vec) = db::embed::embed_text(&model, keyword) {
                         let vec_json = format!("{:?}", q_vec);
-                        let tables = ["module", "entity", "concept", "flow", "question", "overview"];
 
                         // 1. Keyword results
-                        let kw_results = db::queries::run_query(&conn, &db::queries::keyword_search_for_hybrid(keyword)).await?;
+                        let kw_results = db::queries::run_query(&conn, &db::queries::keyword_search_for_hybrid(keyword, &all_tables_clause)).await?;
 
                         // 2. Vector results
                         let mut vec_results: Vec<serde_json::Value> = Vec::new();
-                        for table in tables {
+                        for table in &all_tables {
                             let q = db::queries::semantic_search_query(table, &vec_json, 5);
                             let mut results = db::queries::run_query(&conn, &q).await?;
                             vec_results.append(&mut results);
@@ -182,7 +186,7 @@ pub async fn run(
                     }
                 }
                 // Fallback: keyword only
-                let q = db::queries::search_query(keyword);
+                let q = db::queries::search_query(keyword, &all_tables_clause);
                 let results = db::queries::run_query(&conn, &q).await?;
                 if format == "json" {
                     println!("{}", serde_json::to_string_pretty(&results)?);
@@ -328,7 +332,7 @@ pub async fn run(
                 let model = db::embed::init_model()?;
                 let q_vec = db::embed::embed_text(&model, question)?;
                 let vec_json = format!("{:?}", q_vec);
-                let tables = ["module", "entity", "concept", "flow", "overview"];
+                let tables = &all_tables;
                 let mut all_results: Vec<serde_json::Value> = Vec::new();
                 for table in tables {
                     let q = db::queries::semantic_search_query(table, &vec_json, 3);
@@ -374,7 +378,7 @@ pub async fn run(
                 let model = db::embed::init_model()?;
                 let q_vec = db::embed::embed_text(&model, question)?;
                 let vec_json = format!("{:?}", q_vec);
-                let tables = ["module", "entity", "concept", "flow", "question", "overview"];
+                let tables = &all_tables;
                 let mut all_results: Vec<serde_json::Value> = Vec::new();
                 for table in tables {
                     let q = db::queries::ask_context_query(table, &vec_json, top_k);

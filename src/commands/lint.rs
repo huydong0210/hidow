@@ -6,12 +6,12 @@ use crate::db;
 use crate::parser;
 
 /// Lint/validate the graph against the wiki source of truth.
-pub async fn run(data_dir: &str, wiki_path: &str, check: Option<&str>) -> Result<()> {
+pub async fn run(data_dir: &str, instance: &str, wiki_path: &str, check: Option<&str>) -> Result<()> {
     println!("{}", "🔍 Graph Health Check".cyan().bold());
 
     let wiki = Path::new(wiki_path);
     let pages = parser::parse_wiki_dir(wiki)?;
-    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, instance).await?;
 
     let mut issues = 0u32;
 
@@ -50,7 +50,7 @@ pub async fn run(data_dir: &str, wiki_path: &str, check: Option<&str>) -> Result
     if check.is_none() || check == Some("edges") {
         println!("\n{}", "3. EDGE INTEGRITY".bold());
         // Count total edges
-        let edge_tables = ["depends_on", "produces", "consumes", "contains", "part_of", "implements", "uses", "triggers", "affects"];
+        let edge_tables = db::EDGE_TABLES;
         let mut total_edges = 0u64;
         for table in edge_tables {
             let q = format!("SELECT count() FROM {} GROUP ALL;", table);

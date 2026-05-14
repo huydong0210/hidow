@@ -74,11 +74,13 @@ pub fn entity_usage_query() -> String {
 }
 
 /// List all nodes of a given type.
-pub fn list_query(node_type: &str) -> String {
+pub fn list_query(node_type: &str, all_tables: &str) -> String {
     if node_type == "all" {
-        "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, wiki_path \
-         FROM module, entity, concept, flow, question, overview ORDER BY node_type, title;"
-            .to_string()
+        format!(
+            "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, wiki_path \
+             FROM {} ORDER BY node_type, title;",
+            all_tables
+        )
     } else {
         format!(
             "SELECT meta::id(id) AS node_id, title, status, wiki_path \
@@ -89,12 +91,14 @@ pub fn list_query(node_type: &str) -> String {
 }
 
 /// List all nodes with title + content preview + tags (bulk detail in 1 call).
-pub fn list_detail_query(node_type: &str) -> String {
+pub fn list_detail_query(node_type: &str, all_tables: &str) -> String {
     if node_type == "all" {
-        "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, tags, \
-                string::slice(content, 0, 200) AS summary, wiki_path \
-         FROM module, entity, concept, flow, question, overview ORDER BY node_type, title;"
-            .to_string()
+        format!(
+            "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, status, tags, \
+                    string::slice(content, 0, 200) AS summary, wiki_path \
+             FROM {} ORDER BY node_type, title;",
+            all_tables
+        )
     } else {
         format!(
             "SELECT meta::id(id) AS node_id, title, status, tags, \
@@ -115,15 +119,15 @@ pub fn context_query(node_type: &str) -> String {
 }
 
 /// Search nodes by keyword (matches title and tags).
-pub fn search_query(keyword: &str) -> String {
+pub fn search_query(keyword: &str, all_tables: &str) -> String {
     let kw_lower = keyword.to_lowercase();
     format!(
         "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, tags, wiki_path \
-         FROM module, entity, concept, flow, question, overview \
+         FROM {} \
          WHERE string::lowercase(title) CONTAINS '{}' \
             OR tags CONTAINS '{}' \
          ORDER BY node_type, title;",
-        kw_lower, kw_lower
+        all_tables, kw_lower, kw_lower
     )
 }
 
@@ -290,16 +294,16 @@ pub fn semantic_search_query(table: &str, embedding_json: &str, k: usize) -> Str
 }
 
 /// Keyword search query returning fields compatible with RRF merging.
-pub fn keyword_search_for_hybrid(keyword: &str) -> String {
+pub fn keyword_search_for_hybrid(keyword: &str, all_tables: &str) -> String {
     let kw_lower = keyword.to_lowercase();
     format!(
         "SELECT meta::id(id) AS node_id, meta::tb(id) AS node_type, title, wiki_path \
-         FROM module, entity, concept, flow, question, overview \
+         FROM {} \
          WHERE string::lowercase(title) CONTAINS '{}' \
             OR tags CONTAINS '{}' \
             OR string::lowercase(content) CONTAINS '{}' \
          ORDER BY node_type, title;",
-        kw_lower, kw_lower, kw_lower
+        all_tables, kw_lower, kw_lower, kw_lower
     )
 }
 

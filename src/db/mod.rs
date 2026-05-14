@@ -12,9 +12,12 @@ use surrealdb::Surreal;
 /// All modules use this type instead of concrete engine types.
 pub type DbConn = Surreal<Db>;
 
-/// Connect to embedded SurrealDB (SurrealKV engine).
-/// Creates the data directory if it doesn't exist.
-pub async fn connect(data_dir: &str, ns: &str, db_name: &str) -> Result<DbConn> {
+/// Fixed namespace for all hidow instances.
+pub const NAMESPACE: &str = "hidow";
+
+/// Connect to embedded SurrealDB (SurrealKV engine) for a specific instance.
+/// Each instance = a separate database within the "hidow" namespace.
+pub async fn connect(data_dir: &str, instance: &str) -> Result<DbConn> {
     // Ensure data directory exists
     let path = Path::new(data_dir);
     if !path.exists() {
@@ -25,7 +28,22 @@ pub async fn connect(data_dir: &str, ns: &str, db_name: &str) -> Result<DbConn> 
     let db = Surreal::new::<SurrealKv>(data_dir).await
         .with_context(|| format!("Failed to open embedded DB at: {}", data_dir))?;
 
-    db.use_ns(ns).use_db(db_name).await?;
+    db.use_ns(NAMESPACE).use_db(instance).await?;
+    Ok(db)
+}
+
+/// Connect to SurrealDB at namespace level (for listing instances).
+pub async fn connect_ns(data_dir: &str) -> Result<DbConn> {
+    let path = Path::new(data_dir);
+    if !path.exists() {
+        std::fs::create_dir_all(path)
+            .with_context(|| format!("Failed to create data directory: {}", data_dir))?;
+    }
+
+    let db = Surreal::new::<SurrealKv>(data_dir).await
+        .with_context(|| format!("Failed to open embedded DB at: {}", data_dir))?;
+
+    db.use_ns(NAMESPACE).await?;
     Ok(db)
 }
 
@@ -44,4 +62,38 @@ pub async fn is_initialized(db: &DbConn) -> Result<bool> {
         }
     }
     Ok(false)
+}
+
+/// Edge tables — these are fixed (TYPE RELATION).
+pub const EDGE_TABLES: &[&str] = &[
+    "depends_on", "produces", "consumes", "contains",
+    "part_of", "implements", "uses", "triggers", "affects",
+];
+
+/// Get all node table names from DB (excludes edge tables and business_rule).
+pub async fn node_tables(db: &DbConn) -> Result<Vec<String>> {
+    let result: Vec<serde_json::Value> = db
+        .query("INFO FOR DB;")
+        .await?
+        .take(0)?;
+
+    let mut tables = Vec::new();
+    if let Some(info) = result.first() {
+        if let Some(tb) = info.get("tables").and_then(|v| v.as_object()) {
+            for name in tb.keys() {
+                // Skip edge tables and business_rule
+                if !EDGE_TABLES.contains(&name.as_str()) && name != "business_rule" {
+                    tables.push(name.clone());
+                }
+            }
+        }
+    }
+    tables.sort();
+    Ok(tables)
+}
+
+/// Build a FROM clause string for queries: "module, entity, concept, ..."
+pub async fn node_tables_clause(db: &DbConn) -> Result<String> {
+    let tables = node_tables(db).await?;
+    Ok(tables.join(", "))
 }

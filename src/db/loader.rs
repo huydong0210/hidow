@@ -1,9 +1,11 @@
+use std::collections::HashSet;
+
 use anyhow::{Context, Result};
 use colored::Colorize;
 use serde_json::json;
 
 use super::DbConn;
-
+use crate::db;
 use crate::parser::models::WikiPage;
 
 /// Resolve a wiki path (e.g. "wiki/modules/accounting") to a SurrealDB record ID (e.g. "module:accounting").
@@ -47,15 +49,29 @@ pub async fn load_pages(
 
     if clean {
         println!("{}", "🗑️  Cleaning existing data...".yellow());
-        db.query(
-            "
-            DELETE module; DELETE entity; DELETE concept; DELETE flow; DELETE question; DELETE overview;
-            DELETE business_rule;
-            DELETE depends_on; DELETE produces; DELETE consumes; DELETE contains;
-            DELETE part_of; DELETE implements; DELETE uses; DELETE triggers; DELETE affects;
-            ",
-        )
-        .await?;
+        // Dynamic: delete all node tables + edge tables
+        let existing_tables = db::node_tables(db).await.unwrap_or_default();
+        for t in &existing_tables {
+            db.query(&format!("DELETE {};", t)).await?;
+        }
+        db.query("DELETE business_rule;").await?;
+        for t in db::EDGE_TABLES {
+            db.query(&format!("DELETE {};", t)).await?;
+        }
+    }
+
+    // ── Phase 0: Auto-create schema for new types ──
+    let mut known_tables: HashSet<String> = db::node_tables(db).await
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    for page in pages {
+        let table = &page.frontmatter.page_type;
+        if !known_tables.contains(table) {
+            eprintln!("  {} New type '{}' — creating schema...", "🆕".cyan(), table);
+            db::schema::define_node_table(db, table).await?;
+            known_tables.insert(table.to_string());
+        }
     }
 
     // ── Phase 1: Create nodes ──

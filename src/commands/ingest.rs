@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use anyhow::Result;
 use colored::Colorize;
@@ -6,7 +7,7 @@ use crate::db;
 use crate::parser;
 
 /// Ingest wiki pages into SurrealDB.
-pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
+pub async fn run(data_dir: &str, instance: &str, wiki_path: &str, full: bool, dry_run: bool, file: Option<&str>) -> Result<()> {
     let wiki = Path::new(wiki_path);
 
     // Parse
@@ -19,13 +20,16 @@ pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, fil
         parser::parse_wiki_dir(wiki)?
     };
 
+    let mut type_counts: HashMap<&str, usize> = HashMap::new();
+    for page in &pages {
+        *type_counts.entry(&page.frontmatter.page_type).or_insert(0) += 1;
+    }
+    let mut type_summary: Vec<_> = type_counts.iter().collect();
+    type_summary.sort_by_key(|(k, _)| k.to_string());
     println!(
-        "  Found {} pages ({} modules, {} entities, {} concepts, {} flows)",
+        "  Found {} pages ({})",
         pages.len().to_string().bold(),
-        pages.iter().filter(|p| p.frontmatter.page_type == "module").count(),
-        pages.iter().filter(|p| p.frontmatter.page_type == "entity").count(),
-        pages.iter().filter(|p| p.frontmatter.page_type == "concept").count(),
-        pages.iter().filter(|p| p.frontmatter.page_type == "flow").count(),
+        type_summary.iter().map(|(k, v)| format!("{} {}", v, k)).collect::<Vec<_>>().join(", ")
     );
 
     if dry_run {
@@ -40,7 +44,7 @@ pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, fil
     }
 
     // Connect
-    let conn = db::connect(data_dir, "nimp", "wiki").await?;
+    let conn = db::connect(data_dir, instance).await?;
     println!("  ✅ Database at {}", data_dir.green());
 
     // Auto-init schema if database is empty
@@ -91,7 +95,7 @@ pub async fn run(data_dir: &str, wiki_path: &str, full: bool, dry_run: bool, fil
 async fn generate_embeddings(conn: &db::DbConn) -> anyhow::Result<()> {
     eprintln!("\n{}", "🧠 Generating embeddings...".cyan().bold());
     let model = db::embed::init_model()?;
-    let tables = ["module", "entity", "concept", "flow", "question", "overview"];
+    let tables = db::node_tables(conn).await?;
     let mut embed_count = 0;
     for table in tables {
         let q = format!("SELECT meta::id(id) AS node_id, title, tags, content FROM {};", table);

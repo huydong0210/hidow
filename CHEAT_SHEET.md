@@ -1,6 +1,8 @@
 # Hidow CLI - Cheat Sheet
 
-Công cụ `hidow` cung cấp toàn bộ các lệnh để quản lý và truy vấn đồ thị hệ thống NIMP trên SurrealDB. Dưới đây là danh sách toàn bộ **16 query presets** và các lệnh quản trị, được tổ chức theo mục đích sử dụng.
+Công cụ `hidow` cung cấp toàn bộ các lệnh để quản lý và truy vấn đồ thị tri thức trên SurrealDB. Hỗ trợ **multi-instance** — mỗi project có knowledge graph riêng biệt.
+
+> **⚠️ Quan trọng**: Tất cả lệnh yêu cầu flag `-i <instance>`. Nếu không truyền, sẽ dùng instance `default` kèm cảnh báo.
 
 ---
 
@@ -8,12 +10,13 @@ Công cụ `hidow` cung cấp toàn bộ các lệnh để quản lý và truy v
 
 | Lệnh | Ý nghĩa |
 |------|---------|
-| `hidow init` | Khởi tạo Schema Database ban đầu (Chỉ chạy 1 lần). |
-| `hidow ingest` | Đồng bộ thông minh Wiki vào Graph + generate embeddings. Auto-init schema nếu lần đầu. |
-| `hidow ingest --full` | Bỏ qua cache, ghi đè toàn bộ Wiki vào Graph từ đầu. |
-| `hidow ingest --dry-run`| Chạy thử Ingest, xem trước số lượng Nodes/Edges sẽ tạo mà không ghi vào DB. |
-| `hidow status` | Xem thống kê số lượng Module, Entity, Concept và các liên kết hiện có. |
-| `hidow lint` | Chạy bộ kiểm tra sức khỏe Graph (Orphan nodes, Missing links, Sync status). |
+| `hidow -i nimp init` | Khởi tạo Schema Database ban đầu (Chỉ chạy 1 lần). |
+| `hidow -i nimp ingest` | Đồng bộ thông minh Wiki vào Graph + generate embeddings. Auto-init schema nếu lần đầu. |
+| `hidow -i nimp ingest --full` | Bỏ qua cache, ghi đè toàn bộ Wiki vào Graph từ đầu. |
+| `hidow -i nimp ingest --dry-run`| Chạy thử Ingest, xem trước số lượng Nodes/Edges sẽ tạo mà không ghi vào DB. |
+| `hidow -i nimp status` | Xem thống kê số lượng Module, Entity, Concept và các liên kết hiện có. |
+| `hidow -i nimp lint` | Chạy bộ kiểm tra sức khỏe Graph (Orphan nodes, Missing links, Sync status). |
+| `hidow instance list` | Liệt kê tất cả instances với số lượng nodes/edges. |
 
 ---
 
@@ -82,6 +85,7 @@ Nhóm lệnh sử dụng embedding vectors để tìm kiếm theo ngữ nghĩa. 
 ## 💡 Mẹo sử dụng (Tips)
 1. Thêm cờ `--format json` vào cuối bất kỳ lệnh `query` nào nếu bạn muốn LLM đọc kết quả dưới dạng JSON thay vì dạng bảng.
 2. Bạn có thể truyền `--data-dir <PATH>` hoặc `--wiki-path <PATH>` nếu chạy tool ở ngoài thư mục gốc. Mặc định tool lưu database ở `~/.hidow/data` và đọc wiki ở `./wiki`.
+3. **Multi-instance**: Dùng `-i <name>` để chỉ định instance. Mỗi project nên có instance riêng: `hidow -i nimp`, `hidow -i project_x`.
 3. **Workflow LLM tối ưu**: `search` → `content` (đọc chi tiết) → `impact` + `rules-for` (đánh giá rủi ro).
 4. **1 lệnh xem toàn cảnh**: Dùng `neighbors <id>` thay vì gọi riêng `impact` + `deps` + `rules-for`.
 5. **RAG pipeline**: `hidow query ask "câu hỏi" --format json` → inject vào LLM system prompt → trả lời chính xác hơn.
