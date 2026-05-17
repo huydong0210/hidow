@@ -26,11 +26,11 @@ Nhóm lệnh dùng khi LLM hoặc Developer chưa biết chính xác cấu trúc
 
 | Lệnh | Ý nghĩa | Ví dụ tham số |
 |------|---------|---------------|
-| `hidow query search <keyword>` | Tìm kiếm hybrid (keyword + vector RRF khi có embeddings). | `search premium` <br> `search voucher` |
-| `hidow query list <type>` | Liệt kê toàn bộ nodes theo loại. | `list module`<br>`list entity`<br>`list all` |
-| `hidow query info <id>` | Xem toàn bộ Metadata, Tags, Quan hệ, và Số lượng Business Rules của 1 Node. | `info module:accounting`<br>`info entity:voucher` |
-| `hidow query content <id>` | Đọc toàn bộ nội dung wiki page (markdown body) trực tiếp từ DB. | `content module:accounting`<br>`content entity:voucher` |
-| `hidow query neighbors <id>` | Xem TẤT CẢ nodes liên quan (in/out, all edge types) trong 1 lệnh. | `neighbors module:claim`<br>`neighbors entity:contract` |
+| `hidow -i nimp query search <keyword>` | Tìm kiếm hybrid (keyword + vector RRF khi có embeddings). | `search premium` <br> `search voucher` |
+| `hidow -i nimp query list <type>` | Liệt kê toàn bộ nodes theo loại. | `list module`<br>`list entity`<br>`list all` |
+| `hidow -i nimp query info <id>` | Xem toàn bộ Metadata, Tags, Quan hệ, và Số lượng Business Rules của 1 Node. | `info module:accounting`<br>`info entity:voucher` |
+| `hidow -i nimp query content <id>` | Đọc toàn bộ nội dung wiki page (markdown body) trực tiếp từ DB. | `content module:accounting`<br>`content entity:voucher` |
+| `hidow -i nimp query neighbors <id>` | Xem TẤT CẢ nodes liên quan (in/out, all edge types) trong 1 lệnh. | `neighbors module:claim`<br>`neighbors entity:contract` |
 
 ---
 
@@ -40,10 +40,10 @@ Nhóm lệnh dùng để đánh giá rủi ro trước khi code hoặc sửa đ�
 
 | Lệnh | Ý nghĩa | Ví dụ tham số |
 |------|---------|---------------|
-| `hidow query impact <id>` | (Impact Analysis) Thành phần nào sẽ bị "vỡ" nếu tôi sửa node này? | `impact module:claim` |
-| `hidow query deps <id>` | Node này đang phụ thuộc và gọi đến những thằng nào? | `deps entity:contract` |
-| `hidow query rules-for <id>`| Sửa Node này thì có nguy cơ vi phạm những Business Rules nào? | `rules-for module:accounting` |
-| `hidow query rules [severity]`| Liệt kê toàn bộ Business Rules của hệ thống. | `rules`<br>`rules critical` |
+| `hidow -i nimp query impact <id>` | (Impact Analysis) Thành phần nào sẽ bị "vỡ" nếu tôi sửa node này? | `impact module:claim` |
+| `hidow -i nimp query deps <id>` | Node này đang phụ thuộc và gọi đến những thằng nào? | `deps entity:contract` |
+| `hidow -i nimp query rules-for <id>`| Sửa Node này thì có nguy cơ vi phạm những Business Rules nào? | `rules-for module:accounting` |
+| `hidow -i nimp query rules [severity]`| Liệt kê toàn bộ Business Rules của hệ thống. | `rules`<br>`rules critical` |
 
 ---
 
@@ -53,10 +53,10 @@ Nhóm lệnh tính toán tổng thể hoặc truy vấn đường đi phức t�
 
 | Lệnh | Ý nghĩa | Ví dụ tham số |
 |------|---------|---------------|
-| `hidow query path <A> <B>` | Tìm đường đi và các mối liên kết chung giữa Node A và Node B. | `path module:claim module:accounting` |
-| `hidow query coupling` | Xếp hạng các Module phức tạp nhất (nhiều liên kết In/Out nhất). | `coupling` |
-| `hidow query entity-usage` | Xếp hạng các Entity bị thao tác nhiều nhất (được consume bởi nhiều module nhất).| `entity-usage` |
-| `hidow query raw "<sql>"` | Chạy truy vấn SurrealQL tự do. | `raw "SELECT * FROM module"` |
+| `hidow -i nimp query path <A> <B>` | Tìm đường đi và các mối liên kết chung giữa Node A và Node B. | `path module:claim module:accounting` |
+| `hidow -i nimp query coupling` | Xếp hạng các Module phức tạp nhất (nhiều liên kết In/Out nhất). | `coupling` |
+| `hidow -i nimp query entity-usage` | Xếp hạng các Entity bị thao tác nhiều nhất (được consume bởi nhiều module nhất).| `entity-usage` |
+| `hidow -i nimp query raw "<sql>"` | Chạy truy vấn SurrealQL tự do. | `raw "SELECT * FROM module"` |
 
 ---
 
@@ -64,9 +64,9 @@ Nhóm lệnh tính toán tổng thể hoặc truy vấn đường đi phức t�
 
 | Lệnh | Ý nghĩa |
 |------|---------|
-| `hidow export --format json > dump.json`| Xuất toàn bộ (nodes + edges + **business_rules**) ra JSON. |
-| `hidow export --format dot > graph.dot` | Xuất Graphviz DOT để dán vào Edotor.net vẽ sơ đồ mạng nhện. |
-| `hidow export --format csv` | Xuất Nodes và Edges ra bảng CSV. |
+| `hidow -i nimp export --format json > dump.json`| Xuất toàn bộ (nodes + edges + **business_rules**) ra JSON. |
+| `hidow -i nimp export --format dot > graph.dot` | Xuất Graphviz DOT để dán vào Edotor.net vẽ sơ đồ mạng nhện. |
+| `hidow -i nimp export --format csv` | Xuất Nodes và Edges ra bảng CSV. |
 
 ---
 
@@ -76,9 +76,9 @@ Nhóm lệnh sử dụng embedding vectors để tìm kiếm theo ngữ nghĩa. 
 
 | Lệnh | Ý nghĩa | Ví dụ tham số |
 |------|---------|---------------|
-| `hidow query similar <id>` | Tìm Top-5 nodes tương tự nhất (KNN cosine similarity). | `similar module:claim`<br>`similar entity:voucher` |
-| `hidow query semantic <text>` | Tìm kiếm theo ý nghĩa (semantic search, hỗ trợ tiếng Việt). | `semantic "tính phí bảo hiểm"`<br>`semantic "premium calculation"` |
-| `hidow query ask <question>` | RAG context retrieval — trả full content cho LLM system prompt. | `ask "XOL calculation" --format json`<br>`ask "cách tính retro" --top 5` |
+| `hidow -i nimp query similar <id>` | Tìm Top-5 nodes tương tự nhất (KNN cosine similarity). | `similar module:claim`<br>`similar entity:voucher` |
+| `hidow -i nimp query semantic <text>` | Tìm kiếm theo ý nghĩa (semantic search, hỗ trợ tiếng Việt). | `semantic "tính phí bảo hiểm"`<br>`semantic "premium calculation"` |
+| `hidow -i nimp query ask <question>` | RAG context retrieval — trả full content cho LLM system prompt. | `ask "XOL calculation" --format json`<br>`ask "cách tính retro" --top 5` |
 
 ---
 
@@ -86,7 +86,7 @@ Nhóm lệnh sử dụng embedding vectors để tìm kiếm theo ngữ nghĩa. 
 1. Thêm cờ `--format json` vào cuối bất kỳ lệnh `query` nào nếu bạn muốn LLM đọc kết quả dưới dạng JSON thay vì dạng bảng.
 2. Bạn có thể truyền `--data-dir <PATH>` hoặc `--wiki-path <PATH>` nếu chạy tool ở ngoài thư mục gốc. Mặc định tool lưu database ở `~/.hidow/data` và đọc wiki ở `./wiki`.
 3. **Multi-instance**: Dùng `-i <name>` để chỉ định instance. Mỗi project nên có instance riêng: `hidow -i nimp`, `hidow -i project_x`.
-3. **Workflow LLM tối ưu**: `search` → `content` (đọc chi tiết) → `impact` + `rules-for` (đánh giá rủi ro).
+4. **Workflow LLM tối ưu**: `search` → `content` (đọc chi tiết) → `impact` + `rules-for` (đánh giá rủi ro).
 4. **1 lệnh xem toàn cảnh**: Dùng `neighbors <id>` thay vì gọi riêng `impact` + `deps` + `rules-for`.
 5. **RAG pipeline**: `hidow query ask "câu hỏi" --format json` → inject vào LLM system prompt → trả lời chính xác hơn.
 6. **So sánh keyword vs semantic**: `search "tính phí"` (hybrid) vs `semantic "tính phí"` (pure vector) — hybrid cho kết quả balanced hơn.

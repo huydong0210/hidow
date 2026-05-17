@@ -170,7 +170,7 @@ hidow -i nimp export --format dot --node-type module > modules.dot
 
 | # | Preset | Arguments | Mô tả |
 |---|--------|-----------|-------|
-| 1 | `list` | `<type>` | Liệt kê nodes: module, entity, concept, flow, question, all |
+| 1 | `list` | `<type>` | Liệt kê nodes theo loại (bất kỳ type nào, hoặc `all`) |
 | 2 | `search` | `<keyword>` | Tìm kiếm hybrid (keyword + vector RRF) |
 | 3 | `info` | `<type:id>` | Metadata + relationship counts + BR counts |
 | 4 | `content` | `<type:id>` | Full markdown body của wiki page |

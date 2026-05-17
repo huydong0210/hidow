@@ -17,16 +17,8 @@ fn resolve_record_id(wiki_path: &str) -> Option<(String, String)> {
         // Standard: wiki/modules/accounting → module:accounting
         let type_plural = parts[1];
         let slug = parts[2..].join("_").replace('-', "_");
-
-        let table = match type_plural {
-            "modules" => "module",
-            "entities" => "entity",
-            "concepts" => "concept",
-            "flows" => "flow",
-            "questions" => "question",
-            _ => return None,
-        };
-        Some((table.to_string(), slug))
+        let table = pluralize_to_singular(type_plural);
+        Some((table, slug))
     } else if parts.len() == 2 {
         // Root-level: wiki/overview → overview:overview
         let slug = parts[1].replace('-', "_");
@@ -34,6 +26,36 @@ fn resolve_record_id(wiki_path: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+/// Convert a plural folder name to its singular form for use as a DB table name.
+/// Known irregular plurals are handled first, then generic English rules apply.
+fn pluralize_to_singular(plural: &str) -> String {
+    // Known irregular mappings
+    match plural {
+        "entities" => return "entity".to_string(),
+        _ => {}
+    }
+
+    // Generic rules (order matters: most specific first)
+    if plural.ends_with("ies") {
+        // policies → policy, categories → category
+        let stem = &plural[..plural.len() - 3];
+        return format!("{}y", stem);
+    }
+    if plural.ends_with("ses") || plural.ends_with("xes") || plural.ends_with("zes")
+        || plural.ends_with("ches") || plural.ends_with("shes")
+    {
+        // processes → process, indexes → index, batches → batch
+        return plural[..plural.len() - 2].to_string();
+    }
+    if plural.ends_with('s') {
+        // modules → module, flows → flow, runbooks → runbook
+        return plural[..plural.len() - 1].to_string();
+    }
+
+    // Fallback: use as-is (already singular)
+    plural.to_string()
 }
 
 /// Load all parsed wiki pages into SurrealDB.
